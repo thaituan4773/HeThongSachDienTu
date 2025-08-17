@@ -1,0 +1,16 @@
+micronaut:
+  security:
+    intercept-url-map:
+      - pattern: /css/**
+        access:
+          - isAnonymous()
+      - pattern: /seller-applications/**
+        access:
+          - hasRole('STAFF')
+          - hasRole('ADMIN')
+      - pattern: /stats/**
+        access:
+          - hasRole('ADMIN')
+      - pattern: /**
+        access:
+          - isAnonymous()
