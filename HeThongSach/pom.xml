@@ -43,6 +43,14 @@
             <scope>compile</scope>
         </dependency>
         <dependency>
+            <groupId>io.micronaut.email</groupId>
+            <artifactId>micronaut-email-javamail</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>io.micronaut.email</groupId>
+            <artifactId>micronaut-email-template</artifactId>
+        </dependency>
+        <dependency>
             <groupId>io.micronaut.serde</groupId>
             <artifactId>micronaut-serde-jackson</artifactId>
             <scope>compile</scope>
@@ -91,6 +99,21 @@
             <groupId>org.projectlombok</groupId>
             <artifactId>lombok</artifactId>
             <scope>provided</scope>
+        </dependency>
+        <dependency>
+            <groupId>com.nimbusds</groupId>
+            <artifactId>nimbus-jose-jwt</artifactId>
+            <version>10.4.1</version>
+        </dependency>
+        <dependency>
+            <groupId>org.mindrot</groupId>
+            <artifactId>jbcrypt</artifactId>
+            <version>0.4</version>
+        </dependency>
+        <dependency>
+            <groupId>jakarta.transaction</groupId>
+            <artifactId>jakarta.transaction-api</artifactId>
+            <version>2.0.1</version>
         </dependency>
     </dependencies>
     <build>

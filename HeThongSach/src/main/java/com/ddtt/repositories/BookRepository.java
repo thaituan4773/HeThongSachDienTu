@@ -1,14 +1,14 @@
 package com.ddtt.repositories;
 
 import com.ddtt.dtos.BookDTO;
-import com.ddtt.jooq.generated.tables.Book;
 import static com.ddtt.jooq.generated.tables.Book.BOOK;
-import com.ddtt.jooq.generated.tables.records.BookRecord;
+import io.micronaut.core.annotation.Blocking;
 import jakarta.inject.Singleton;
 import java.util.List;
 import org.jooq.DSLContext;
 
 @Singleton
+@Blocking
 public class BookRepository {
     private final DSLContext dsl;
 

@@ -1,8 +1,6 @@
 package com.ddtt.controllers;
 
 import com.ddtt.dtos.BookDTO;
-import com.ddtt.jooq.generated.tables.Book;
-import com.ddtt.jooq.generated.tables.records.BookRecord;
 import com.ddtt.services.BookService;
 import io.micronaut.http.HttpResponse;
 import io.micronaut.http.annotation.Controller;

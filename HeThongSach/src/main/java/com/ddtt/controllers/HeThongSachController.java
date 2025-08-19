@@ -1,4 +1,4 @@
-package com.ddtt;
+package com.ddtt.controllers;
 
 import io.micronaut.http.annotation.*;
 

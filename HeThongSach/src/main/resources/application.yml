@@ -4,13 +4,9 @@ micronaut:
       - pattern: /css/**
         access:
           - isAnonymous()
-      - pattern: /seller-applications/**
+      - pattern: /api/**
         access:
-          - hasRole('STAFF')
-          - hasRole('ADMIN')
-      - pattern: /stats/**
-        access:
-          - hasRole('ADMIN')
+          - isAnonymous()
       - pattern: /**
         access:
           - isAnonymous()
