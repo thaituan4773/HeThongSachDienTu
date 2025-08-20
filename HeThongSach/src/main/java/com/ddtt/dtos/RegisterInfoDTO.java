@@ -1,6 +1,5 @@
 package com.ddtt.dtos;
 
-import io.micronaut.core.annotation.Introspected;
 import jakarta.validation.constraints.Email;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.Size;

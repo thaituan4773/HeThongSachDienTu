@@ -8,12 +8,12 @@ import com.nimbusds.jose.crypto.*;
 import com.nimbusds.jwt.*;
 
 @Singleton
-public class EmailVerificationService {
+public class EmailVerification {
 
     private final String secret;
     private final long expirationMs;
 
-    public EmailVerificationService(
+    public EmailVerification(
         @Value("${app.security.email-verification.secret}") String secret,
         @Value("${app.security.email-verification.expiration}") long expirationMs
     ) {
@@ -54,4 +54,6 @@ public class EmailVerificationService {
 
         return signedJWT.getJWTClaimsSet().getSubject();
     }
+    
+    
 }

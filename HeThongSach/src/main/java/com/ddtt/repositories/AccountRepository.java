@@ -41,7 +41,7 @@ public class AccountRepository {
     }
 
     @Transactional
-    public boolean addAccount(RegisterInfoDTO user) {
+    public int addAccount(RegisterInfoDTO user) {
         boolean exists = dsl.fetchExists(
                 dsl.selectOne()
                         .from(ACCOUNT)
@@ -68,6 +68,9 @@ public class AccountRepository {
                 .returning(ACCOUNT.ACCOUNT_ID)
                 .fetchOne();
 
-        return record != null;
+        if (record == null) {
+            throw new RuntimeException("Failed to create account");
+        }
+        return record.getAccountId();
     }
 }

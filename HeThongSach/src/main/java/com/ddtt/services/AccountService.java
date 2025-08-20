@@ -27,7 +27,7 @@ public class AccountService {
         accountRepo.markEmailVerified(accountId);
     }
     
-    public boolean addAccount(RegisterInfoDTO info, CompletedFileUpload file){
+    public int addAccount(RegisterInfoDTO info, CompletedFileUpload file){
         if (file != null && file.getSize() > 0) {
             try {
                 Map res = cloudinary.uploader()

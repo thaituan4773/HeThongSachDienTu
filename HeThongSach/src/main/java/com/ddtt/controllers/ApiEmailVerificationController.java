@@ -1,6 +1,6 @@
 package com.ddtt.controllers;
 
-import com.ddtt.auth.EmailVerificationService;
+import com.ddtt.auth.EmailVerification;
 import com.ddtt.dtos.EmailVerificationAccountDTO;
 import com.ddtt.services.AccountService;
 import io.micronaut.http.HttpResponse;
@@ -10,11 +10,11 @@ import io.micronaut.http.annotation.QueryValue;
 import jakarta.inject.Inject;
 import org.jooq.DSLContext;
 
-@Controller("/api/verify-email")
+@Controller("/api/verify")
 public class ApiEmailVerificationController {
 
     @Inject
-    EmailVerificationService emailService;
+    EmailVerification emailService;
     @Inject
     AccountService accountService;
 

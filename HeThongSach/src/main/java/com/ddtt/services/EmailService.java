@@ -1,0 +1,14 @@
+package com.ddtt.services;
+
+import com.ddtt.repositories.EmailRepository;
+import jakarta.inject.Singleton;
+import lombok.RequiredArgsConstructor;
+
+@Singleton
+@RequiredArgsConstructor
+public class EmailService {
+    private final EmailRepository emailRepository;
+    public boolean sendEmail(int accountId, String email){
+        return emailRepository.sendVerificationIfAllowed(accountId, email);
+    }
+}
