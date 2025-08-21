@@ -1,10 +1,11 @@
 package com.ddtt.repositories;
 
-import com.ddtt.auth.EmailVerification;
+import com.ddtt.dtos.EmailVerificationAccountDTO;
+import static com.ddtt.jooq.generated.tables.Account.ACCOUNT;
 import jakarta.inject.Singleton;
 import lombok.RequiredArgsConstructor;
 import static com.ddtt.jooq.generated.tables.EmailVerificationRequest.EMAIL_VERIFICATION_REQUEST;
-import static com.ddtt.jooq.generated.tables.Account.ACCOUNT;
+import com.ddtt.utils.JwtUtils;
 import io.micronaut.core.annotation.Blocking;
 import io.micronaut.email.Email;
 import io.micronaut.email.EmailSender;
@@ -15,14 +16,15 @@ import org.jooq.DSLContext;
 
 @RequiredArgsConstructor
 @Singleton
+@Blocking
 public class EmailRepository {
 
     private final DSLContext dsl;
-    private final EmailVerification tokenService;
     private final long cooldownSeconds = 300;
     private final EmailSender<?, ?> emailSender;
-    private final String appSchemeBase = "myapp://verify?token=";
+    private final String appSchemeBase = "exp+HeThongSach-App://verify?token=";
     private final String webFallbackBase = "http://10.0.2.2:8080/api/verify?token=";
+    private final JwtUtils jwtUtils;
 
     public void sendVerificationEmail(String to, String token) {
         String appLink = appSchemeBase + URLEncoder.encode(token, StandardCharsets.UTF_8);
@@ -30,6 +32,7 @@ public class EmailRepository {
         String body = "Mở app để xác thực email: " + appLink + "\n\nNếu không mở được app, hãy dùng trình duyệt: " + webLink;
 
         emailSender.send(Email.builder()
+                .from("sender@example.com")
                 .to(to)
                 .subject("Xác thực email")
                 .body(body));
@@ -41,8 +44,6 @@ public class EmailRepository {
     //3: Sinh token JWT
     //4: Upsert row vào email_verification_request
     //5: Gửi email
-    @Blocking
-    @Singleton
     public boolean sendVerificationIfAllowed(int accountId, String email) {
         // 1
         var acc = dsl.select(ACCOUNT.ACCOUNT_ID, ACCOUNT.EMAIL_VERIFIED)
@@ -75,7 +76,7 @@ public class EmailRepository {
         // 3
         String token;
         try {
-            token = tokenService.generateToken(email);
+            token = jwtUtils.generateTokenForEmail(email);
         } catch (Exception e) {
             throw new RuntimeException("Cannot generate token", e);
         }
@@ -96,6 +97,28 @@ public class EmailRepository {
         sendVerificationEmail(email, token);
 
         return true;
+    }
+    
+    public EmailVerificationAccountDTO findByEmail(String email) {
+        var record = dsl.selectFrom(ACCOUNT)
+                .where(ACCOUNT.EMAIL.eq(email))
+                .and(ACCOUNT.DELETED_AT.isNull())
+                .fetchOne();
+        if (record == null) {
+            return null;
+        }
+
+        return new EmailVerificationAccountDTO(
+                record.getAccountId(),
+                record.getEmailVerified()
+        );
+    }
+    
+    public void markEmailVerified(int accountId) {
+        dsl.update(ACCOUNT)
+                .set(ACCOUNT.EMAIL_VERIFIED, true)
+                .where(ACCOUNT.ACCOUNT_ID.eq(accountId))
+                .execute();
     }
 
 }

@@ -1,36 +1,31 @@
 package com.ddtt.controllers;
 
-import com.ddtt.auth.EmailVerification;
 import com.ddtt.dtos.EmailVerificationAccountDTO;
-import com.ddtt.services.AccountService;
+import com.ddtt.services.EmailService;
+import com.ddtt.utils.JwtUtils;
 import io.micronaut.http.HttpResponse;
 import io.micronaut.http.annotation.Controller;
 import io.micronaut.http.annotation.Get;
 import io.micronaut.http.annotation.QueryValue;
-import jakarta.inject.Inject;
-import org.jooq.DSLContext;
+import lombok.RequiredArgsConstructor;
 
 @Controller("/api/verify")
+@RequiredArgsConstructor
 public class ApiEmailVerificationController {
 
-    @Inject
-    EmailVerification emailService;
-    @Inject
-    AccountService accountService;
-
-    public ApiEmailVerificationController(DSLContext dsl) {
-    }
+    private final EmailService emailService;
+    private final JwtUtils jwtUtils;
 
     @Get
-    public HttpResponse<?> verify(@QueryValue String token) {
-        try {
-            String email = emailService.verifyToken(token);
+    public HttpResponse<?> verify(@QueryValue String token) throws Exception {
+       {
+            String email = jwtUtils.verifyEmailToken(token);
             if (email == null) {
                 return HttpResponse.badRequest("Invalid or expired token");
             }
 
-            // Tìm tài khoản theo email
-            EmailVerificationAccountDTO account = accountService.findByEmail(email);
+            // Tìm lấy thông tin verified email của tài khoản theo email
+            EmailVerificationAccountDTO account = emailService.findByEmail(email);
             if (account == null) {
                 return HttpResponse.badRequest("Account not found");
             }
@@ -39,10 +34,8 @@ public class ApiEmailVerificationController {
             }
             
             // Cho email verified là true
-            accountService.markEmailVerified(account.getAccountId());
+            emailService.markEmailVerified(account.getAccountId());
             return HttpResponse.ok("Email verified successfully");
-        } catch (Exception e) {
-            return HttpResponse.badRequest("Invalid token");
         }
     }
 }

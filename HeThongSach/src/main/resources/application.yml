@@ -4,6 +4,9 @@ micronaut:
       - pattern: /css/**
         access:
           - isAnonymous()
+      - pattern: /api/books
+        access:
+          - isAuthenticated()
       - pattern: /api/**
         access:
           - isAnonymous()

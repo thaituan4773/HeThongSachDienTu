@@ -1,24 +1,29 @@
 package com.ddtt.controllers;
 
+import com.ddtt.dtos.LoginRequestDTO;
 import com.ddtt.dtos.RegisterInfoDTO;
 import com.ddtt.services.AccountService;
 import com.ddtt.services.EmailService;
 import io.micronaut.core.annotation.Nullable;
 import io.micronaut.http.HttpResponse;
+import io.micronaut.http.MediaType;
+import io.micronaut.http.annotation.Body;
 import io.micronaut.http.annotation.Controller;
 import io.micronaut.http.annotation.Part;
 import io.micronaut.http.annotation.Post;
 import io.micronaut.http.multipart.CompletedFileUpload;
+import jakarta.validation.Valid;
+import java.util.Map;
 import lombok.RequiredArgsConstructor;
 
-@Controller("/api/register")
+@Controller("/api")
 @RequiredArgsConstructor
-public class ApiRegisterUser {
+public class ApiAuth {
 
     private final AccountService accountService;
     private final EmailService emailService;
 
-    @Post(consumes = "multipart/form-data")
+    @Post(value = "/register", consumes = "multipart/form-data")
     public HttpResponse<?> register(
             @Part("displayName") String displayName,
             @Part("email") String email,
@@ -40,5 +45,22 @@ public class ApiRegisterUser {
         } catch (Exception e) {
             return HttpResponse.serverError("Unexpected error: " + e.getMessage());
         }
+    }
+
+    @Post(value = "/login", consumes = MediaType.APPLICATION_JSON, produces = MediaType.APPLICATION_JSON)
+    public HttpResponse<?> login(@Body @Valid LoginRequestDTO request) throws Exception {
+        return HttpResponse.ok(accountService.login(request));
+
+    }
+
+    @Post(value = "/refresh", consumes = MediaType.APPLICATION_JSON, produces = MediaType.APPLICATION_JSON)
+    public HttpResponse<?> refreshToken(@Body Map<String, String> request) throws Exception {
+
+        String refreshToken = request.get("refreshToken");
+        if (refreshToken == null || refreshToken.isBlank()) {
+            throw new IllegalStateException("Refresh token is required");
+        }
+        return HttpResponse.ok(accountService.refreshToken(refreshToken));
+
     }
 }

@@ -1,44 +1,20 @@
 package com.ddtt.repositories;
 
-import com.ddtt.dtos.EmailVerificationAccountDTO;
 import com.ddtt.dtos.RegisterInfoDTO;
 import io.micronaut.core.annotation.Blocking;
 import jakarta.inject.Singleton;
 import org.jooq.DSLContext;
 import static com.ddtt.jooq.generated.tables.Account.ACCOUNT;
+import com.ddtt.jooq.generated.tables.records.AccountRecord;
 import jakarta.transaction.Transactional;
+import lombok.RequiredArgsConstructor;
 
 @Singleton
 @Blocking
+@RequiredArgsConstructor
 public class AccountRepository {
 
     private final DSLContext dsl;
-
-    public AccountRepository(DSLContext dsl) {
-        this.dsl = dsl;
-    }
-
-    public EmailVerificationAccountDTO findByEmail(String email) {
-        var record = dsl.selectFrom(ACCOUNT)
-                .where(ACCOUNT.EMAIL.eq(email))
-                .and(ACCOUNT.DELETED_AT.isNull())
-                .fetchOne();
-        if (record == null) {
-            return null;
-        }
-
-        return new EmailVerificationAccountDTO(
-                record.getAccountId(),
-                record.getEmailVerified()
-        );
-    }
-
-    public void markEmailVerified(int accountId) {
-        dsl.update(ACCOUNT)
-                .set(ACCOUNT.EMAIL_VERIFIED, true)
-                .where(ACCOUNT.ACCOUNT_ID.eq(accountId))
-                .execute();
-    }
 
     @Transactional
     public int addAccount(RegisterInfoDTO user) {
@@ -73,4 +49,12 @@ public class AccountRepository {
         }
         return record.getAccountId();
     }
+
+    public AccountRecord findByEmail(String email) {
+        return dsl.selectFrom(ACCOUNT)
+                .where(ACCOUNT.EMAIL.eq(email))
+                .and(ACCOUNT.DELETED_AT.isNull())
+                .fetchOne();
+    }
+
 }
