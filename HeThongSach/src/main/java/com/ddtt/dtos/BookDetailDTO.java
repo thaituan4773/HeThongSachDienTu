@@ -1,16 +1,19 @@
 package com.ddtt.dtos;
 
+import io.micronaut.serde.annotation.Serdeable;
 import java.util.List;
-import lombok.Value;
+import lombok.Data;
 
-@Value
+@Data
+@Serdeable
 public class BookDetailDTO {
     String bookName;
-    List<String> categoryName;
+    String genre;
     Integer authorID;
     String description;
     int totalView;
-    int totalLike;
+    int totalRating;
+    double avgRating;
     int totalDonate;
     List<ChapterDTO> chapters;
 }

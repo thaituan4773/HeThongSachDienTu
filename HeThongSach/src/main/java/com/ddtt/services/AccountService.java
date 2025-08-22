@@ -85,5 +85,9 @@ public class AccountService {
                 jwtUtils.getRefreshExpirationMs()
         );
     }
+    
+    public String getRoleByEmail(String email){
+        return this.accountRepo.getRoleByEmail(email);
+    }
 
 }

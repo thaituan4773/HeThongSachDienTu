@@ -3,10 +3,10 @@ micronaut:
     intercept-url-map:
       - pattern: /css/**
         access:
-          - isAnonymous()
+          - isAuthenticated()
       - pattern: /api/books
         access:
-          - isAuthenticated()
+          - ADMIN
       - pattern: /api/**
         access:
           - isAnonymous()

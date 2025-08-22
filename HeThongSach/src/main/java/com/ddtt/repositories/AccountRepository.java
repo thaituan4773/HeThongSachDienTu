@@ -8,6 +8,7 @@ import static com.ddtt.jooq.generated.tables.Account.ACCOUNT;
 import com.ddtt.jooq.generated.tables.records.AccountRecord;
 import jakarta.transaction.Transactional;
 import lombok.RequiredArgsConstructor;
+import org.jooq.Record1;
 
 @Singleton
 @Blocking
@@ -55,6 +56,20 @@ public class AccountRepository {
                 .where(ACCOUNT.EMAIL.eq(email))
                 .and(ACCOUNT.DELETED_AT.isNull())
                 .fetchOne();
+    }
+
+    public String getRoleByEmail(String email) {
+        Record1<String> record = dsl
+                .select(ACCOUNT.ROLE)
+                .from(ACCOUNT)
+                .where(ACCOUNT.EMAIL.eq(email))
+                .fetchOne();
+
+        if (record != null) {
+            return record.value1();
+        } else {
+            throw new SecurityException("Account not found");
+        }
     }
 
 }
