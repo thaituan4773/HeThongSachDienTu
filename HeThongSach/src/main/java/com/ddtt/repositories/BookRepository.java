@@ -245,7 +245,7 @@ public class BookRepository {
             Field<String> pattern = DSL.val("%" + trimmed + "%");
             var titleCond = BOOK.TITLE.likeIgnoreCase(pattern);
             var descCond = BOOK.DESCRIPTION.likeIgnoreCase(pattern);
-            
+
             // Tính độ phù hợp
             // Tựa đề + 10
             // Mô tả + 5
@@ -254,11 +254,19 @@ public class BookRepository {
             matchScore = titleScore.add(descScore);
             condition = condition.and(titleCond.or(descCond));
         }
+        var v = viewsAgg();
+        var r = ratingsAgg();
+        Field<Integer> totalViewF = DSL.coalesce(v.field("totalView", Integer.class), DSL.inline(0)).as("totalView");
+        Field<Integer> totalRatingF = DSL.coalesce(r.field("totalRating", Integer.class), DSL.inline(0)).as("totalRating");
+        Field<Double> avgRatingF = DSL.coalesce(r.field("avgRating", Double.class), DSL.inline(0.0)).as("avgRating");
 
         List<BookSummaryDTO> items = dsl.select(
                 BOOK.BOOK_ID.as("bookId"),
                 BOOK.TITLE.as("title"),
-                BOOK.COVER_IMAGE_URL.as("coverImageURL")
+                BOOK.COVER_IMAGE_URL.as("coverImageURL"),
+                totalViewF,
+                totalRatingF,
+                avgRatingF
         )
                 .from(BOOK)
                 .where(condition)
