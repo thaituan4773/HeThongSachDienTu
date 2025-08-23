@@ -7,13 +7,13 @@ import lombok.Data;
 @Data
 @Serdeable
 public class BookDetailDTO {
-    String bookName;
-    String genre;
-    Integer authorID;
-    String description;
-    int totalView;
-    int totalRating;
-    double avgRating;
-    int totalDonate;
-    List<ChapterDTO> chapters;
+    private String bookName;
+    private String genre;
+    private Integer authorID;
+    private String description;
+    private int totalView;
+    private int totalRating;
+    private double avgRating;
+    private int totalDonate;
+    private List<ChapterDTO> chapters;
 }

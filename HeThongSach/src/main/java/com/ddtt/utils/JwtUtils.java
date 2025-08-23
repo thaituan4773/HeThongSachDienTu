@@ -1,5 +1,6 @@
 package com.ddtt.utils;
 
+import com.ddtt.services.AccountService;
 import com.nimbusds.jose.JWSAlgorithm;
 import com.nimbusds.jose.JWSHeader;
 import com.nimbusds.jose.JWSSigner;
@@ -20,19 +21,22 @@ public class JwtUtils {
     private final String loginSecret;
     private final long loginExpirationMs;
     private final long refreshExpirationMs;
+    private final AccountService accountService;
 
     public JwtUtils(
         @Value("${app.verification.email.secret}") String emailSecret,
         @Value("${app.verification.email.expiration}") long emailExpirationMs,
         @Value("${app.verification.login.secret}") String loginSecret,
         @Value("${app.verification.login.expiration}") long loginExpirationMs,
-        @Value("${app.verification.login.refreshExpiration}") long refreshExpirationMs
+        @Value("${app.verification.login.refreshExpiration}") long refreshExpirationMs,
+        AccountService accountService
     ) {
         this.emailSecret = emailSecret;
         this.emailExpirationMs = emailExpirationMs;
         this.loginSecret = loginSecret;
         this.loginExpirationMs = loginExpirationMs;
         this.refreshExpirationMs = refreshExpirationMs;
+        this.accountService = accountService;
     }
 
     public String generateTokenForEmail(String email) throws Exception {
@@ -70,10 +74,12 @@ public class JwtUtils {
     }
 
     public String generateTokenForLogin(String email) throws Exception {
+        int accountId = this.accountService.getIdByEmail(email);
         JWSSigner signer = new MACSigner(loginSecret);
 
         JWTClaimsSet claimsSet = new JWTClaimsSet.Builder()
                 .subject(email)
+                .claim("accountId", accountId) 
                 .expirationTime(new Date(System.currentTimeMillis() + loginExpirationMs))
                 .issueTime(new Date())
                 .build();
@@ -87,7 +93,7 @@ public class JwtUtils {
         return signedJWT.serialize();
     }
 
-    public String verifyLoginToken(String token) throws Exception {
+    public int verifyLoginToken(String token) throws Exception {
         SignedJWT signedJWT = SignedJWT.parse(token);
         JWSVerifier verifier = new MACVerifier(loginSecret);
 
@@ -100,7 +106,7 @@ public class JwtUtils {
             throw new SecurityException("Token expired");
         }
 
-        return signedJWT.getJWTClaimsSet().getSubject();
+        return signedJWT.getJWTClaimsSet().getIntegerClaim("accountId");
     }
 
     public String generateRefreshToken(String email) throws Exception {

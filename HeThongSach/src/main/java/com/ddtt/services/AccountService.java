@@ -15,8 +15,8 @@ import java.util.Map;
 import lombok.RequiredArgsConstructor;
 import org.mindrot.jbcrypt.BCrypt;
 
-@RequiredArgsConstructor
 @Singleton
+@RequiredArgsConstructor
 public class AccountService {
 
     private final AccountRepository accountRepo;
@@ -37,7 +37,7 @@ public class AccountService {
         }
         String hashed = BCrypt.hashpw(info.getPassword(), BCrypt.gensalt());
         info.setPassword(hashed);
-        return this.accountRepo.addAccount(info);
+        return accountRepo.addAccount(info);
     }
 
     public TokenResponseDTO login(LoginRequestDTO req) throws Exception {
@@ -86,8 +86,11 @@ public class AccountService {
         );
     }
     
-    public String getRoleByEmail(String email){
-        return this.accountRepo.getRoleByEmail(email);
+    public String getRoleById(int id){
+        return accountRepo.getRoleById(id);
+    }
+    public int getIdByEmail(String email){
+        return accountRepo.getIdByEmail(email);
     }
 
 }

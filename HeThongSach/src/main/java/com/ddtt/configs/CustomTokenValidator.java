@@ -35,28 +35,19 @@ public class CustomTokenValidator implements TokenValidator<HttpRequest<?>> {
             if (token.isBlank()) {
                 return Publishers.empty();
             }
+            int accountId = jwtUtils.verifyLoginToken(token);
+            String role = accountService.getRoleById(accountId);
+            List<String> rolesList = (role == null || role.isBlank())
+                    ? List.of()
+                    : List.of(role.toUpperCase());
 
-            String email = jwtUtils.verifyLoginToken(token);
-            if (email == null || email.isBlank()) {
-                return Publishers.empty();
-            }
-
-            String role = accountService.getRoleByEmail(email);
-            List<String> rolesList;
-            if (role == null || role.isBlank()) {
-                rolesList = List.of();
-            } else {
-                rolesList = List.of(role.toUpperCase());
-            }
-
-            Map<String, Object> attributes = Map.of("email", email);
-
-
-            Authentication auth = Authentication.build(email, rolesList, attributes);
+            Map<String, Object> attributes = Map.of("accountId", accountId);
+            Authentication auth = Authentication.build(String.valueOf(accountId), rolesList, attributes);
 
             return Publishers.just(auth);
         } catch (Exception ex) {
             return Publishers.empty();
         }
     }
+
 }

@@ -1,11 +1,12 @@
 package com.ddtt.repositories;
 
+import com.ddtt.dtos.GenreDTO;
+import static com.ddtt.jooq.generated.tables.Book.BOOK;
 import io.micronaut.core.annotation.Blocking;
 import jakarta.inject.Singleton;
 import java.util.Map;
 import lombok.RequiredArgsConstructor;
 import org.jooq.DSLContext;
-import static com.ddtt.jooq.generated.tables.Book.BOOK;
 import static com.ddtt.jooq.generated.tables.BookView.BOOK_VIEW;
 import static com.ddtt.jooq.generated.tables.Genre.GENRE;
 import java.time.OffsetDateTime;
@@ -52,5 +53,12 @@ public class GenreRepository {
                 .from(GENRE)
                 .where(GENRE.GENRE_ID.eq(id))
                 .fetchOneInto(String.class);
+    }
+    
+    public List<GenreDTO> getAllGenre(){
+        return dsl.selectFrom(GENRE).fetch(record -> new GenreDTO(
+                record.getGenreId(),
+                record.getName()
+        ));
     }
 }

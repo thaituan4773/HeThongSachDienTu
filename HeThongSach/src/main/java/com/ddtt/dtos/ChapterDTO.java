@@ -5,9 +5,9 @@ import lombok.Value;
 
 @Value
 public class ChapterDTO {
-    int chapterId;
-    String title;
-    int order;
-    int coinPrice;
-    Date createdDate;
+    private int chapterId;
+    private String title;
+    private int order;
+    private int coinPrice;
+    private Date createdDate;
 }

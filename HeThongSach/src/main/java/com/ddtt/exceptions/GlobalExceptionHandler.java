@@ -29,6 +29,9 @@ public class GlobalExceptionHandler implements ExceptionHandler<Exception, HttpR
         if (ex instanceof JOSEException) {
             return HttpResponse.serverError().body(Map.of("error", "Lỗi thuật toán ký hoặc secret"));
         }
+        if (ex instanceof SecurityException) {
+            return HttpResponse.status(HttpStatus.UNAUTHORIZED).body(Map.of("error", ex.getMessage()));
+        }
         return HttpResponse.serverError().body(Map.of("error", "Internal server error: " + ex.getMessage()));
     }
 }

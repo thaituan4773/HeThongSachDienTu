@@ -1,7 +1,10 @@
 package com.ddtt.services;
 
 import com.ddtt.dtos.BookDTO;
+import com.ddtt.dtos.BookDetailDTO;
+import com.ddtt.dtos.BookSummaryDTO;
 import com.ddtt.dtos.CategoryDTO;
+import com.ddtt.dtos.PageResponseDTO;
 import com.ddtt.repositories.BookRepository;
 import com.ddtt.repositories.GenreRepository;
 import io.micronaut.cache.annotation.Cacheable;
@@ -28,7 +31,7 @@ public class BookService {
     }
 
     @Cacheable("categoryPreview")
-    public CategoryDTO findNewestBooks(int limit) {
+    public CategoryDTO findNewestBooks() {
         List<BookDTO> books = bookRepository.findNewestBooks(limit);
         return new CategoryDTO("newest", "Mới nhất", books);
     }
@@ -54,5 +57,13 @@ public class BookService {
         return new CategoryDTO("topRated", "Đánh giá cao nhất", books);
     }
     
+    public BookDetailDTO findBookDetail(int bookId){
+        return bookRepository.findBookDetail(bookId);
+    }
+    
+    public PageResponseDTO<BookSummaryDTO> searchBooks(String kw, int page){
+        final int size = 12;
+        return bookRepository.searchBooks(kw, page, size);
+    }
 
 }

@@ -58,18 +58,28 @@ public class AccountRepository {
                 .fetchOne();
     }
 
-    public String getRoleByEmail(String email) {
+    public String getRoleById(int id) {
         Record1<String> record = dsl
                 .select(ACCOUNT.ROLE)
                 .from(ACCOUNT)
-                .where(ACCOUNT.EMAIL.eq(email))
+                .where(ACCOUNT.ACCOUNT_ID.eq(id))
                 .fetchOne();
 
-        if (record != null) {
-            return record.value1();
-        } else {
+        if (record == null) {
             throw new SecurityException("Account not found");
         }
+        return record.value1();
+    }
+
+    public int getIdByEmail(String email) {
+        Record1<Integer> record = dsl.select(ACCOUNT.ACCOUNT_ID)
+                .from(ACCOUNT)
+                .where(ACCOUNT.EMAIL.eq(email))
+                .fetchOne();
+        if (record == null) {
+            throw new SecurityException("Account not found");
+        }
+        return record.value1();
     }
 
 }

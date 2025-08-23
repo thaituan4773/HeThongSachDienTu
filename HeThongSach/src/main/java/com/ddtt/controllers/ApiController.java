@@ -6,18 +6,15 @@ import io.micronaut.core.annotation.Nullable;
 import io.micronaut.http.HttpResponse;
 import io.micronaut.http.annotation.Controller;
 import io.micronaut.http.annotation.Get;
-import io.micronaut.security.annotation.Secured;
 import io.micronaut.security.authentication.Authentication;
 import java.util.List;
 import java.util.Map;
+import lombok.RequiredArgsConstructor;
 
 @Controller("/api")
+@RequiredArgsConstructor
 public class ApiController {
     private final BookService bookService;
-
-    public ApiController(BookService bookService) {
-        this.bookService = bookService;
-    }
     
     @Get("/books")
     public HttpResponse<List<BookDTO>> getAllBooks() {
