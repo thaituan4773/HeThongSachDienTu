@@ -6,10 +6,10 @@ import lombok.Value;
 @Value
 @Serdeable
 public class BookSummaryDTO {
-    private final int bookId;
-    private final String title;
-    private final String coverImageURL;
-    private final int totalView;
-    private final int totalRating;
-    private final double avgRating;
+    int bookId;
+    String title;
+    String coverImageURL;
+    int totalView;
+    int totalRating;
+    double avgRating;
 }

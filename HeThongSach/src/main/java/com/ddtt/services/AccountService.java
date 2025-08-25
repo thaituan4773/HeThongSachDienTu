@@ -5,6 +5,7 @@ import com.cloudinary.utils.ObjectUtils;
 import com.ddtt.dtos.LoginRequestDTO;
 import com.ddtt.dtos.TokenResponseDTO;
 import com.ddtt.dtos.RegisterInfoDTO;
+import com.ddtt.exceptions.ForbiddenException;
 import com.ddtt.jooq.generated.tables.records.AccountRecord;
 import com.ddtt.repositories.AccountRepository;
 import com.ddtt.utils.JwtUtils;
@@ -43,17 +44,18 @@ public class AccountService {
     public TokenResponseDTO login(LoginRequestDTO req) throws Exception {
         AccountRecord account = accountRepo.findByEmail(req.getEmail());
         if (account == null) {
-            throw new RuntimeException("Email or password incorrect");
+            throw new SecurityException("Email hoặc password sai");
         }
         String hash = account.get("password_hash", String.class);
         if (!BCrypt.checkpw(req.getPassword(), hash)) {
-            throw new RuntimeException("Email or password incorrect");
+            throw new SecurityException("Email hoặc password sai");
         }
         if (!account.get("email_verified", Boolean.class)) {
-            throw new RuntimeException("Email not verified");
+            throw new ForbiddenException("Email chưa xác thực");
         }
 
-        String accessToken = jwtUtils.generateTokenForLogin(account.get("email", String.class));
+        int accountId = accountRepo.getIdByEmail(account.get("email", String.class));
+        String accessToken = jwtUtils.generateTokenForLogin(account.get("email", String.class), accountId);
         String refreshToken = jwtUtils.generateRefreshToken(account.get("email", String.class));
         return new TokenResponseDTO(
                 accessToken,
@@ -74,10 +76,10 @@ public class AccountService {
         if (account == null) {
             throw new RuntimeException("Account not found");
         }
-        
-        String newAccessToken = jwtUtils.generateTokenForLogin(email);
+        int accountId = account.get("account_id", Integer.class);
+        String newAccessToken = jwtUtils.generateTokenForLogin(email, accountId);
         String newRefreshToken = jwtUtils.generateRefreshToken(email);
-        
+
         return new TokenResponseDTO(
                 newAccessToken,
                 newRefreshToken,
@@ -85,11 +87,12 @@ public class AccountService {
                 jwtUtils.getRefreshExpirationMs()
         );
     }
-    
-    public String getRoleById(int id){
+
+    public String getRoleById(int id) {
         return accountRepo.getRoleById(id);
     }
-    public int getIdByEmail(String email){
+
+    public int getIdByEmail(String email) {
         return accountRepo.getIdByEmail(email);
     }
 

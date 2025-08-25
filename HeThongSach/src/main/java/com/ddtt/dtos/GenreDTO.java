@@ -6,6 +6,6 @@ import lombok.Value;
 @Value
 @Serdeable
 public class GenreDTO {
-    private int genre;
-    private String genreName;
+    int genre;
+    String genreName;
 }

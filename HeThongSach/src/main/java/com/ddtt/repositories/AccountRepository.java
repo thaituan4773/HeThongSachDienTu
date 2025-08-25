@@ -27,7 +27,7 @@ public class AccountRepository {
         );
 
         if (exists) {
-            throw new IllegalStateException("Email already exists");
+            throw new IllegalStateException("Email đã tồn tại");
         }
         var record = dsl.insertInto(ACCOUNT)
                 .columns(
@@ -46,7 +46,7 @@ public class AccountRepository {
                 .fetchOne();
 
         if (record == null) {
-            throw new RuntimeException("Failed to create account");
+            throw new RuntimeException("Tạo tài khoản thất bại");
         }
         return record.getAccountId();
     }
@@ -66,7 +66,7 @@ public class AccountRepository {
                 .fetchOne();
 
         if (record == null) {
-            throw new SecurityException("Account not found");
+            throw new SecurityException("Không tìm thấy tài khoản");
         }
         return record.value1();
     }
@@ -77,7 +77,7 @@ public class AccountRepository {
                 .where(ACCOUNT.EMAIL.eq(email))
                 .fetchOne();
         if (record == null) {
-            throw new SecurityException("Account not found");
+            throw new SecurityException("Không tìm thấy tài khoản");
         }
         return record.value1();
     }

@@ -19,6 +19,7 @@ public class BookService {
     private final BookRepository bookRepository;
     private final GenreRepository genreRepository;
     private final int limit = 30;
+    private final int pageSize = 12;
 
     public List<BookDTO> getAllBooks() {
         return bookRepository.findAllBooks();
@@ -50,20 +51,26 @@ public class BookService {
                 findBooksByGenreCached(id)))
                 .toList();
     }
-    
+
     @Cacheable("categoryPreview")
-    public CategoryDTO findTopRatedBooks(){
+    public CategoryDTO findTopRatedBooks() {
         List<BookDTO> books = bookRepository.findTopRatedBooks(limit);
         return new CategoryDTO("topRated", "Đánh giá cao nhất", books);
     }
-    
-    public BookDetailDTO findBookDetail(int bookId){
-        return bookRepository.findBookDetail(bookId);
+
+    public BookDetailDTO findBookDetail(int bookId) {
+        return bookRepository.getBookDetail(bookId);
     }
-    
-    public PageResponseDTO<BookSummaryDTO> searchBooks(String kw, int page){
-        final int size = 12;
-        return bookRepository.searchBooks(kw, page, size);
+
+    public PageResponseDTO<BookSummaryDTO> searchBooks(String kw, int page) {
+        return bookRepository.searchBooks(kw, page, pageSize);
+    }
+
+    public PageResponseDTO<BookSummaryDTO> findBooksByGenrePaged(int genreId, int page, String sort) {
+        if (sort == null || sort.isBlank()) {
+            sort = "trending";
+        }
+        return bookRepository.findBooksByGenrePaged(genreId, page, pageSize, sort);
     }
 
 }

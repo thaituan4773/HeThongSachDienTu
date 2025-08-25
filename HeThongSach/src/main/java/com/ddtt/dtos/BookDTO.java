@@ -6,7 +6,7 @@ import lombok.Value;
 @Value
 @Serdeable
 public class BookDTO {
-    private int bookId;
-    private String title;
-    private String coverImageURL;
+    int bookId;
+    String title;
+    String coverImageURL;
 }

@@ -47,13 +47,13 @@ public class ApiAuth {
         }
     }
 
-    @Post(value = "/login", consumes = MediaType.APPLICATION_JSON, produces = MediaType.APPLICATION_JSON)
+    @Post(value = "/login")
     public HttpResponse<?> login(@Body @Valid LoginRequestDTO request) throws Exception {
         return HttpResponse.ok(accountService.login(request));
 
     }
 
-    @Post(value = "/refresh", consumes = MediaType.APPLICATION_JSON, produces = MediaType.APPLICATION_JSON)
+    @Post(value = "/refresh")
     public HttpResponse<?> refreshToken(@Body Map<String, String> request) throws Exception {
 
         String refreshToken = request.get("refreshToken");

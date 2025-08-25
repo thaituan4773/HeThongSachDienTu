@@ -21,22 +21,20 @@ public class JwtUtils {
     private final String loginSecret;
     private final long loginExpirationMs;
     private final long refreshExpirationMs;
-    private final AccountService accountService;
+
 
     public JwtUtils(
         @Value("${app.verification.email.secret}") String emailSecret,
         @Value("${app.verification.email.expiration}") long emailExpirationMs,
         @Value("${app.verification.login.secret}") String loginSecret,
         @Value("${app.verification.login.expiration}") long loginExpirationMs,
-        @Value("${app.verification.login.refreshExpiration}") long refreshExpirationMs,
-        AccountService accountService
+        @Value("${app.verification.login.refreshExpiration}") long refreshExpirationMs
     ) {
         this.emailSecret = emailSecret;
         this.emailExpirationMs = emailExpirationMs;
         this.loginSecret = loginSecret;
         this.loginExpirationMs = loginExpirationMs;
         this.refreshExpirationMs = refreshExpirationMs;
-        this.accountService = accountService;
     }
 
     public String generateTokenForEmail(String email) throws Exception {
@@ -73,8 +71,7 @@ public class JwtUtils {
         return signedJWT.getJWTClaimsSet().getSubject();
     }
 
-    public String generateTokenForLogin(String email) throws Exception {
-        int accountId = this.accountService.getIdByEmail(email);
+    public String generateTokenForLogin(String email, int accountId) throws Exception {
         JWSSigner signer = new MACSigner(loginSecret);
 
         JWTClaimsSet claimsSet = new JWTClaimsSet.Builder()

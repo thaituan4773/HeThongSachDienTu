@@ -1,7 +1,7 @@
 micronaut:
   security:
     intercept-url-map:
-      - pattern: /css/**
+      - pattern: /api/chapters/*/comments/**
         access:
           - isAuthenticated()
       - pattern: /api/books

@@ -32,6 +32,12 @@ public class GlobalExceptionHandler implements ExceptionHandler<Exception, HttpR
         if (ex instanceof SecurityException) {
             return HttpResponse.status(HttpStatus.UNAUTHORIZED).body(Map.of("error", ex.getMessage()));
         }
+        if (ex instanceof ForbiddenException) {
+            return HttpResponse.status(HttpStatus.FORBIDDEN).body(Map.of("error", ex.getMessage()));
+        }
+        if (ex instanceof NotFoundException ) {
+            return HttpResponse.status(HttpStatus.NOT_FOUND).body(Map.of("error", ex.getMessage()));
+        }
         return HttpResponse.serverError().body(Map.of("error", "Internal server error: " + ex.getMessage()));
     }
 }

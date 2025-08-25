@@ -3,7 +3,7 @@ package com.ddtt.repositories;
 import com.ddtt.dtos.BookDTO;
 import com.ddtt.dtos.BookDetailDTO;
 import com.ddtt.dtos.BookSummaryDTO;
-import com.ddtt.dtos.ChapterDTO;
+import com.ddtt.dtos.ChapterOverviewDTO;
 import com.ddtt.dtos.PageResponseDTO;
 import static com.ddtt.jooq.generated.tables.Book.BOOK;
 import static com.ddtt.jooq.generated.tables.BookView.BOOK_VIEW;
@@ -12,6 +12,8 @@ import static com.ddtt.jooq.generated.tables.Rating.RATING;
 import static com.ddtt.jooq.generated.tables.Donation.DONATION;
 import static com.ddtt.jooq.generated.tables.Genre.GENRE;
 import static com.ddtt.jooq.generated.tables.Chapter.CHAPTER;
+import com.ddtt.repository.conditions.BookConditions;
+import com.ddtt.repository.conditions.ChapterConditions;
 import io.micronaut.core.annotation.Blocking;
 import jakarta.inject.Singleton;
 import java.time.OffsetDateTime;
@@ -21,6 +23,7 @@ import lombok.RequiredArgsConstructor;
 import org.jooq.Condition;
 import org.jooq.DSLContext;
 import org.jooq.Field;
+import org.jooq.SortField;
 import org.jooq.Table;
 import org.jooq.impl.DSL;
 
@@ -33,7 +36,9 @@ public class BookRepository {
     private final RatingRepository ratingRepository;
 
     public List<BookDTO> findAllBooks() {
-        return dsl.selectFrom(BOOK).fetch(record -> new BookDTO(
+        return dsl.selectFrom(BOOK)
+                .where(BookConditions.discoverableStatus())
+                .fetch(record -> new BookDTO(
                 record.getBookId(),
                 record.getTitle(),
                 null
@@ -46,12 +51,12 @@ public class BookRepository {
         return dsl.select(
                 BOOK.BOOK_ID,
                 BOOK.TITLE,
-                BOOK.COVER_IMAGE_URL,
-                DSL.count(BOOK_VIEW.ACCOUNT_ID).as("viewCount")
+                BOOK.COVER_IMAGE_URL
         )
                 .from(BOOK)
                 .join(BOOK_VIEW).on(BOOK.BOOK_ID.eq(BOOK_VIEW.BOOK_ID))
                 .where(BOOK_VIEW.VIEWED_AT.ge(since))
+                .and(BookConditions.discoverableStatus())
                 .groupBy(BOOK.BOOK_ID, BOOK.TITLE, BOOK.COVER_IMAGE_URL)
                 .orderBy(DSL.field("viewCount").desc())
                 .limit(limit)
@@ -61,8 +66,6 @@ public class BookRepository {
     // Lấy ngẫu nhiên một cuốn sách theo tagId, nhưng loại bỏ các sách mà userId đã xem
     public Optional<BookDTO> findRandomBookByTagExcludingUser(int tagId, int userId) {
 
-        // Lấy danh sách BOOK_ID mà user đã xem từ bảng BOOK_VIEW
-        // Để loại trừ các sách đó khi query chính
         var viewedBooks = DSL.select(BOOK_VIEW.BOOK_ID)
                 .from(BOOK_VIEW)
                 .where(BOOK_VIEW.ACCOUNT_ID.eq(userId));
@@ -72,7 +75,7 @@ public class BookRepository {
                 .join(BOOK_TAG).on(BOOK.BOOK_ID.eq(BOOK_TAG.BOOK_ID))
                 .where(BOOK_TAG.TAG_ID.eq(tagId))
                 .and(BOOK.BOOK_ID.notIn(viewedBooks))
-                .and(BOOK.DELETED_AT.isNull())
+                .and(BookConditions.discoverableStatus())
                 .orderBy(DSL.field("random()"))
                 .limit(1)
                 .fetchOptionalInto(BookDTO.class);
@@ -83,11 +86,15 @@ public class BookRepository {
                 .from(BOOK_VIEW)
                 .where(BOOK_VIEW.ACCOUNT_ID.eq(userId));
 
-        return dsl.select(BOOK.BOOK_ID, BOOK.TITLE, BOOK.COVER_IMAGE_URL)
+        return dsl.select(
+                BOOK.BOOK_ID.as("bookId")
+                ,BOOK.TITLE.as("title")
+                ,BOOK.COVER_IMAGE_URL.as("coverImageURL")
+        )
                 .from(BOOK)
                 .where(BOOK.GENRE_ID.eq(genreId))
                 .and(BOOK.BOOK_ID.notIn(viewedBooks))
-                .and(BOOK.DELETED_AT.isNull())
+                .and(BookConditions.discoverableStatus())
                 .orderBy(DSL.field("random()"))
                 .limit(1)
                 .fetchOptionalInto(BookDTO.class);
@@ -95,12 +102,12 @@ public class BookRepository {
 
     public List<BookDTO> findNewestBooks(int limit) {
         return dsl.select(
-                BOOK.BOOK_ID,
-                BOOK.TITLE,
-                BOOK.COVER_IMAGE_URL
+                BOOK.BOOK_ID.as("bookId"),
+                BOOK.TITLE.as("title"),
+                BOOK.COVER_IMAGE_URL.as("coverImageURL")
         )
                 .from(BOOK)
-                .where(BOOK.DELETED_AT.isNull())
+                .where(BookConditions.discoverableStatus())
                 .orderBy(BOOK.CREATED_AT.desc())
                 .limit(limit)
                 .fetchInto(BookDTO.class);
@@ -108,12 +115,13 @@ public class BookRepository {
 
     public List<BookDTO> findBooksByGenre(int genreId, int limit) {
         return dsl.select(
-                BOOK.BOOK_ID,
-                BOOK.TITLE,
-                BOOK.COVER_IMAGE_URL
+                BOOK.BOOK_ID.as("bookId"),
+                BOOK.TITLE.as("title"),
+                BOOK.COVER_IMAGE_URL.as("coverImageURL")
         )
                 .from(BOOK)
                 .where(BOOK.GENRE_ID.eq(genreId))
+                .and(BookConditions.discoverableStatus())
                 .orderBy(BOOK.PUBLISHED_DATE.desc())
                 .limit(limit)
                 .fetch(record -> new BookDTO(
@@ -123,17 +131,19 @@ public class BookRepository {
         ));
     }
 
-    // các sub query
-    private Table<?> viewsAgg() {
-        return dsl.select(BOOK_VIEW.BOOK_ID.as("v_book_id"),
+    // Subquery
+    private Table<?> viewsSub() {
+        return dsl.select(
+                BOOK_VIEW.BOOK_ID.as("v_book_id"),
                 DSL.count().as("totalView"))
                 .from(BOOK_VIEW)
                 .groupBy(BOOK_VIEW.BOOK_ID)
                 .asTable("v");
     }
 
-    private Table<?> ratingsAgg() {
-        return dsl.select(RATING.BOOK_ID.as("r_book_id"),
+    private Table<?> ratingsSub() {
+        return dsl.select(
+                RATING.BOOK_ID.as("r_book_id"),
                 DSL.count().as("totalRating"),
                 DSL.avg(RATING.SCORE).as("avgRating"))
                 .from(RATING)
@@ -141,8 +151,9 @@ public class BookRepository {
                 .asTable("r");
     }
 
-    private Table<?> donationsAgg() {
-        return dsl.select(DONATION.BOOK_ID.as("d_book_id"),
+    private Table<?> donationsSub() {
+        return dsl.select(
+                DONATION.BOOK_ID.as("d_book_id"),
                 DSL.sum(DONATION.COIN_AMOUNT).as("totalDonate"))
                 .from(DONATION)
                 .groupBy(DONATION.BOOK_ID)
@@ -152,28 +163,34 @@ public class BookRepository {
     public List<BookDTO> findTopRatedBooks(int limit) {
         double globalAvg = ratingRepository.getGlobalAvg();
         final int m = 20;
-        var rAgg = ratingsAgg();
 
-        Field<Integer> totalRatingF = DSL.coalesce(rAgg.field("totalRating", Integer.class), DSL.inline(0)).as("totalRating");
-        Field<Double> avgRatingF = DSL.coalesce(rAgg.field("avgRating", Double.class), DSL.inline(0.0)).as("avgRating");
+        var rSub = ratingsSub();
+
+        Field<Integer> totalRatingF = DSL.coalesce(rSub.field("totalRating", Integer.class), DSL.inline(0)).as("totalRating");
+        Field<Double> avgRatingF = DSL.coalesce(rSub.field("avgRating", Double.class), DSL.inline(0.0)).as("avgRating");
+        Field<Double> vDouble = totalRatingF.cast(Double.class);
+        Field<Double> mParam = DSL.inline((double) m);
+        Field<Double> cParam = DSL.val(globalAvg);
+
+        // bayesScore = (v*R + m*C) / (v + m) 
+        // v = totalRatingF
+        // R = avgRatingF
+        // C = globalAvg
+        // m = hằng số
+        Field<Double> bayesScore = vDouble.mul(avgRatingF)
+                .plus(mParam.mul(cParam))
+                .divide(vDouble.plus(mParam));
 
         return dsl.select(
-                BOOK.BOOK_ID,
-                BOOK.TITLE,
-                BOOK.COVER_IMAGE_URL
+                BOOK.BOOK_ID.as("bookId"),
+                BOOK.TITLE.as("title"),
+                BOOK.COVER_IMAGE_URL.as("coverImageURL")
         )
                 .from(BOOK)
-                .leftJoin(rAgg).on(BOOK.BOOK_ID.eq(rAgg.field("r_book_id", Integer.class)))
+                .leftJoin(rSub).on(BOOK.BOOK_ID.eq(rSub.field("r_book_id", Integer.class)))
+                .where(BookConditions.discoverableStatus())
                 .orderBy(
-                        // bayesScore = (v*R + m*C) / (v + m) 
-                        // v = totalRatingF
-                        // R = avgRatingF
-                        // C = globalAvg
-                        // m = hằng số
-                        totalRatingF.mul(avgRatingF)
-                                .plus(DSL.inline((double) m).mul(DSL.inline(globalAvg)))
-                                .divide(totalRatingF.plus(DSL.inline((double) m))).desc(),
-                        // Tie breakers
+                        bayesScore.desc(),
                         totalRatingF.desc(),
                         avgRatingF.desc(),
                         BOOK.CREATED_AT.desc(),
@@ -187,58 +204,61 @@ public class BookRepository {
         ));
     }
 
-    public BookDetailDTO findBookDetail(int bookId) {
+    public BookDetailDTO getBookDetail(int bookId) {
 
-        var vAgg = viewsAgg();
-        var rAgg = ratingsAgg();
-        var dAgg = donationsAgg();
+        var vSub = viewsSub();
+        var rSub = ratingsSub();
+        var dSub = donationsSub();
 
         BookDetailDTO bookDetail = dsl.select(
                 BOOK.TITLE.as("bookName"),
                 GENRE.NAME.as("genreName"),
                 BOOK.AUTHOR_ACCOUNT_ID.as("authorID"),
+                BOOK.STATUS.as("bookStatus"),
                 BOOK.DESCRIPTION,
-                DSL.coalesce(vAgg.field("totalView", Integer.class), DSL.inline(0)).as("totalView"),
-                DSL.coalesce(rAgg.field("totalRating", Integer.class), DSL.inline(0)).as("totalRating"),
-                DSL.coalesce(rAgg.field("avgRating", Double.class), DSL.inline(0.0)).as("avgRating"),
-                DSL.coalesce(dAgg.field("totalDonate", Long.class), DSL.inline(0L)).as("totalDonate")
+                DSL.coalesce(vSub.field("totalView", Integer.class), DSL.inline(0)).as("totalView"),
+                DSL.coalesce(rSub.field("totalRating", Integer.class), DSL.inline(0)).as("totalRating"),
+                DSL.coalesce(rSub.field("avgRating", Double.class), DSL.inline(0.0)).as("avgRating"),
+                DSL.coalesce(dSub.field("totalDonate", Long.class), DSL.inline(0L)).as("totalDonate")
         )
                 .from(BOOK)
                 .join(GENRE).on(BOOK.GENRE_ID.eq(GENRE.GENRE_ID.cast(Integer.class)))
-                .leftJoin(vAgg).on(BOOK.BOOK_ID.eq(vAgg.field("v_book_id", Integer.class)))
-                .leftJoin(rAgg).on(BOOK.BOOK_ID.eq(rAgg.field("r_book_id", Integer.class)))
-                .leftJoin(dAgg).on(BOOK.BOOK_ID.eq(dAgg.field("d_book_id", Integer.class)))
-                .where(BOOK.BOOK_ID.eq(bookId).and(BOOK.DELETED_AT.isNull()))
+                .leftJoin(vSub).on(BOOK.BOOK_ID.eq(vSub.field("v_book_id", Integer.class)))
+                .leftJoin(rSub).on(BOOK.BOOK_ID.eq(rSub.field("r_book_id", Integer.class)))
+                .leftJoin(dSub).on(BOOK.BOOK_ID.eq(dSub.field("d_book_id", Integer.class)))
+                .where(BOOK.BOOK_ID.eq(bookId))
+                .and(BookConditions.discoverableStatus())
                 .fetchOneInto(BookDetailDTO.class);
 
         if (bookDetail == null) {
             return null;
         }
 
-        List<ChapterDTO> chapters = dsl.select(
-                CHAPTER.CHAPTER_ID,
-                CHAPTER.TITLE,
+        List<ChapterOverviewDTO> chapters = dsl.select(
+                CHAPTER.CHAPTER_ID.as("chapterId"),
+                CHAPTER.TITLE.as("title"),
                 CHAPTER.POSITION.as("order"),
                 CHAPTER.COIN_PRICE.as("coinPrice"),
                 CHAPTER.CREATED_AT.as("createdDate")
         )
                 .from(CHAPTER)
                 .where(CHAPTER.BOOK_ID.eq(bookId))
+                .and(ChapterConditions.isPublished())
                 .orderBy(CHAPTER.POSITION.asc())
-                .fetchInto(ChapterDTO.class);
+                .fetchInto(ChapterOverviewDTO.class);
 
         bookDetail.setChapters(chapters);
         return bookDetail;
     }
 
-    // Tìm theo tên sách, description, tác giả
+    // Tìm theo tên sách, description
     public PageResponseDTO<BookSummaryDTO> searchBooks(String kw, int page, int size) {
-        int offset = page * size;
+        int offset = (page - 1) * size;
 
         String trimmed = kw == null ? "" : kw.trim();
         boolean hasKw = !trimmed.isEmpty();
 
-        Condition condition = BOOK.DELETED_AT.isNull();
+        Condition condition = BookConditions.discoverableStatus();
         Field<Integer> matchScore = DSL.inline(0);
 
         if (hasKw) {
@@ -246,16 +266,15 @@ public class BookRepository {
             var titleCond = BOOK.TITLE.likeIgnoreCase(pattern);
             var descCond = BOOK.DESCRIPTION.likeIgnoreCase(pattern);
 
-            // Tính độ phù hợp
-            // Tựa đề + 10
-            // Mô tả + 5
+            // mức độ phù hợp: title +10    description +5
             Field<Integer> titleScore = DSL.when(titleCond, DSL.inline(10)).otherwise(0);
             Field<Integer> descScore = DSL.when(descCond, DSL.inline(5)).otherwise(0);
             matchScore = titleScore.add(descScore);
             condition = condition.and(titleCond.or(descCond));
         }
-        var v = viewsAgg();
-        var r = ratingsAgg();
+
+        var v = viewsSub();
+        var r = ratingsSub();
         Field<Integer> totalViewF = DSL.coalesce(v.field("totalView", Integer.class), DSL.inline(0)).as("totalView");
         Field<Integer> totalRatingF = DSL.coalesce(r.field("totalRating", Integer.class), DSL.inline(0)).as("totalRating");
         Field<Double> avgRatingF = DSL.coalesce(r.field("avgRating", Double.class), DSL.inline(0.0)).as("avgRating");
@@ -269,6 +288,8 @@ public class BookRepository {
                 avgRatingF
         )
                 .from(BOOK)
+                .leftJoin(v).on(BOOK.BOOK_ID.eq(v.field("v_book_id", Integer.class)))
+                .leftJoin(r).on(BOOK.BOOK_ID.eq(r.field("r_book_id", Integer.class)))
                 .where(condition)
                 .orderBy(
                         matchScore.desc(),
@@ -279,13 +300,109 @@ public class BookRepository {
                 .offset(offset)
                 .fetchInto(BookSummaryDTO.class);
 
-        long total = dsl.fetchCount(
-                dsl.select(BOOK.BOOK_ID)
-                        .from(BOOK)
-                        .where(condition)
-        );
+        // Tính tổng số item và tổng số page, chỉ tính ở trang đầu
+        Long total = null;
+        Integer totalPages = null;
+        if (page == 1) {
+            long cnt = dsl.fetchCount(
+                    dsl.select(BOOK.BOOK_ID)
+                            .from(BOOK)
+                            .where(condition)
+            );
+            total = cnt;
+            totalPages = (int) Math.ceil((double) cnt / size);
+        }
 
-        int totalPages = (int) Math.ceil((double) total / size);
+        return new PageResponseDTO<>(total, page, size, totalPages, items);
+    }
+
+    public PageResponseDTO<BookSummaryDTO> findBooksByGenrePaged(
+            int genreId,
+            int page,
+            int size,
+            String sort // "trending", "views", "topRated", "newest"
+    ) {
+        int offset = (page - 1) * size;
+
+        Condition condition = BookConditions.discoverableStatus()
+                .and(BOOK.GENRE_ID.eq(genreId));
+
+        Table<?> vSub = viewsSub();
+        Table<?> rSub = ratingsSub();
+
+        Field<Integer> totalViewF = DSL.coalesce(vSub.field("totalView", Integer.class), DSL.inline(0)).as("totalView");
+        Field<Integer> totalRatingF = DSL.coalesce(rSub.field("totalRating", Integer.class), DSL.inline(0)).as("totalRating");
+        Field<Double> avgRatingF = DSL.coalesce(rSub.field("avgRating", Double.class), DSL.inline(0.0)).as("avgRating");
+
+        SortField<?> orderField;
+        Table<?> trendingSub = null;
+        switch (sort != null ? sort.toLowerCase() : "") {
+            case "views":
+                orderField = totalViewF.desc();
+                break;
+            case "toprated":
+                double globalAvg = ratingRepository.getGlobalAvg();
+                final int m = 20;
+                Field<Double> vDouble = totalRatingF.cast(Double.class);
+                Field<Double> mParam = DSL.inline((double) m);
+                Field<Double> cParam = DSL.val(globalAvg);
+                Field<Double> avgRatingFDouble = avgRatingF;
+                Field<Double> bayesScore = vDouble.mul(avgRatingFDouble)
+                        .plus(mParam.mul(cParam))
+                        .divide(vDouble.plus(mParam));
+                orderField = bayesScore.desc();
+                break;
+            case "newest":
+                orderField = BOOK.CREATED_AT.desc();
+                break;
+            case "trending":
+            default:
+                OffsetDateTime since = OffsetDateTime.now().minusDays(7);
+                trendingSub = dsl.select(
+                        BOOK_VIEW.BOOK_ID.as("t_book_id"),
+                        DSL.count(BOOK_VIEW.ACCOUNT_ID).as("recentView")
+                )
+                        .from(BOOK_VIEW)
+                        .where(BOOK_VIEW.VIEWED_AT.ge(since))
+                        .groupBy(BOOK_VIEW.BOOK_ID)
+                        .asTable("t");
+                totalViewF = DSL.coalesce(trendingSub.field("recentView", Integer.class), DSL.inline(0)).as("totalView");
+                orderField = totalViewF.desc();
+                vSub = trendingSub;
+                break;
+        }
+
+        List<BookSummaryDTO> items = dsl.select(
+                BOOK.BOOK_ID.as("bookId"),
+                BOOK.TITLE.as("title"),
+                BOOK.COVER_IMAGE_URL.as("coverImageURL"),
+                totalViewF,
+                totalRatingF,
+                avgRatingF
+        )
+                .from(BOOK)
+                .leftJoin(vSub).on(BOOK.BOOK_ID.eq(
+                vSub.field(vSub == trendingSub ? "t_book_id" : "v_book_id", Integer.class)))
+                .leftJoin(rSub).on(BOOK.BOOK_ID.eq(rSub.field("r_book_id", Integer.class)))
+                .where(condition)
+                .orderBy(orderField, BOOK.BOOK_ID.desc())
+                .limit(size)
+                .offset(offset)
+                .fetchInto(BookSummaryDTO.class);
+
+        // chỉ tính total/totalPages ở page = 1
+        Long total = null;
+        Integer totalPages = null;
+        if (page == 1) {
+            long cnt = dsl.fetchCount(
+                    dsl.select(BOOK.BOOK_ID)
+                            .from(BOOK)
+                            .where(condition)
+            );
+            total = cnt;
+            totalPages = (int) Math.ceil((double) cnt / size);
+        }
+
         return new PageResponseDTO<>(total, page, size, totalPages, items);
     }
 

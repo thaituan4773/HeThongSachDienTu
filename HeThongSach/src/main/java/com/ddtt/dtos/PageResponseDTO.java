@@ -8,9 +8,9 @@ import lombok.Value;
 @Value
 @Serdeable
 public class PageResponseDTO<T> {
-    private final long total;      // tổng items
-    private final int page;        // current page
-    private final int size;
-    private final int totalPages; 
-    private final List<T> items;
+    Long total;      // tổng items tất cả page // Chỉ tính ở trang đầu, các trang còn lại null
+    int page;        // page hiện tại (bắt đầu từ 1)
+    int size;
+    Integer totalPages; // tổng page // Chỉ tính ở trang đầu, các trang còn lại null
+    List<T> items;
 }

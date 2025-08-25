@@ -5,7 +5,7 @@ import lombok.Value;
 
 @Value
 public class CategoryDTO {
-    private final String id;
-    private final String name;
-    private final List<BookDTO> books;
+    String id;
+    String name;
+    List<BookDTO> books;
 }
