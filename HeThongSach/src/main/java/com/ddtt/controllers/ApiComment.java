@@ -19,9 +19,9 @@ public class ApiComment {
     
     private final CommentService commentService;
     
-    @Get("/chapters/{chapterId}/comments")
+    @Get("/comments")
     public HttpResponse<PageResponseDTO<CommentDTO>> viewComments(
-            @PathVariable int chapterId,
+            @QueryValue (value = "chapterId") int chapterId,
             Authentication authentication,
             @QueryValue(value = "page", defaultValue = "1") @Min(value = 1, message = "page phải >= 1")
             int page,

@@ -3,6 +3,7 @@ package com.ddtt.repositories;
 import com.ddtt.dtos.ChapterContentDTO;
 import com.ddtt.dtos.ChapterCreateDTO;
 import com.ddtt.dtos.ChapterOverviewDTO;
+import com.ddtt.dtos.PageResponseDTO;
 import static com.ddtt.jooq.generated.tables.BookView.BOOK_VIEW;
 import static com.ddtt.jooq.generated.tables.Chapter.CHAPTER;
 import jakarta.inject.Singleton;
@@ -166,7 +167,15 @@ public class ChapterRepository {
                 .execute();
     }
 
-    public List<ChapterOverviewDTO> getChaptersInfo(int bookId, int accountId) {
+    public PageResponseDTO<ChapterOverviewDTO> getChaptersInfoPaged(
+            int bookId,
+            int accountId,
+            int page,
+            int size,
+            boolean desc // true = chapter cuối, false = chapter đầu
+    ) {
+        int offset = (page - 1) * size;
+
         // chỉ gọi get_bit khi bitmap có đủ bit
         Field<Boolean> hasReadField = DSL.field(
                 "CASE WHEN COALESCE(octet_length(reading_progress.read_chapters_bitmap), 0) * 8 > ({0} - 1) "
@@ -175,23 +184,43 @@ public class ChapterRepository {
                 CHAPTER.POSITION
         );
 
-        return dsl.select(
+        Field<Boolean> hasUnlockedF = hasUnlockedField(accountId);
+
+        Condition condition = CHAPTER.BOOK_ID.eq(bookId).and(ChapterConditions.isPublished());
+
+        List<ChapterOverviewDTO> items = dsl.select(
                 CHAPTER.CHAPTER_ID.as("chapterId"),
                 CHAPTER.TITLE.as("title"),
                 CHAPTER.POSITION.as("order"),
                 CHAPTER.COIN_PRICE.as("coinPrice"),
                 CHAPTER.CREATED_AT.as("createdDate"),
                 hasReadField.as("hasRead"),
-                hasUnlockedField(accountId).as("hasUnlocked")
+                hasUnlockedF.as("hasUnlocked")
         )
                 .from(CHAPTER)
                 .leftJoin(READING_PROGRESS)
                 .on(READING_PROGRESS.ACCOUNT_ID.eq(accountId)
                         .and(READING_PROGRESS.BOOK_ID.eq(CHAPTER.BOOK_ID)))
-                .where(CHAPTER.BOOK_ID.eq(bookId))
-                .and(ChapterConditions.isPublished())
-                .orderBy(CHAPTER.POSITION.asc())
+                .where(condition)
+                .orderBy(desc ? CHAPTER.POSITION.desc() : CHAPTER.POSITION.asc())
+                .limit(size)
+                .offset(offset)
                 .fetchInto(ChapterOverviewDTO.class);
+
+        // Tính tổng số chương và tổng số trang (chỉ tính trang đầu)
+        Long total = null;
+        Integer totalPages = null;
+        if (page == 1) {
+            long cnt = dsl.fetchCount(
+                    dsl.select(CHAPTER.CHAPTER_ID)
+                            .from(CHAPTER)
+                            .where(condition)
+            );
+            total = cnt;
+            totalPages = (int) Math.ceil((double) cnt / size);
+        }
+
+        return new PageResponseDTO<>(total, page, size, totalPages, items);
     }
 
 }

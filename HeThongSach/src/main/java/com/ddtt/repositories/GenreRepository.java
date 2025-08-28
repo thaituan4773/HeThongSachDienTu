@@ -35,7 +35,7 @@ public class GenreRepository {
                 .from(GENRE)
                 .fetch(GENRE.GENRE_ID)
                 .stream()
-                .map(Short::intValue) // chuyển sang Integer
+                .map(Integer::valueOf)
                 .toList();
     }
 
@@ -48,7 +48,7 @@ public class GenreRepository {
     }
     
     public String getGenreName(int genreId) {
-        short id = (short) genreId;
+        int id = genreId;
         return dsl.select(GENRE.NAME)
                 .from(GENRE)
                 .where(GENRE.GENRE_ID.eq(id))

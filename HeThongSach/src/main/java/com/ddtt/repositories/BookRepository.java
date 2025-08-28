@@ -14,10 +14,8 @@ import static com.ddtt.jooq.generated.tables.Donation.DONATION;
 import static com.ddtt.jooq.generated.tables.Genre.GENRE;
 import static com.ddtt.jooq.generated.tables.Tag.TAG;
 import static com.ddtt.jooq.generated.tables.BookTag.BOOK_TAG;
-import static com.ddtt.jooq.generated.tables.Chapter.CHAPTER;
 import static com.ddtt.jooq.generated.tables.Account.ACCOUNT;
 import com.ddtt.repository.conditions.BookConditions;
-import com.ddtt.repository.conditions.ChapterConditions;
 import io.micronaut.core.annotation.Blocking;
 import jakarta.inject.Singleton;
 import jakarta.transaction.Transactional;
@@ -106,6 +104,7 @@ public class BookRepository {
     }
 
     public List<BookDTO> findNewestBooks(int limit) {
+        System.out.println("Loading books for newest from DB");
         return dsl.select(
                 BOOK.BOOK_ID.as("bookId"),
                 BOOK.TITLE.as("title"),
@@ -218,10 +217,11 @@ public class BookRepository {
                 DSL.coalesce(vSub.field("totalView", Integer.class), DSL.inline(0)).as("totalView"),
                 DSL.coalesce(rSub.field("totalRating", Integer.class), DSL.inline(0)).as("totalRating"),
                 DSL.coalesce(rSub.field("avgRating", Double.class), DSL.inline(0.0)).as("avgRating"),
-                DSL.coalesce(dSub.field("totalDonate", Long.class), DSL.inline(0L)).as("totalDonate")
+                DSL.coalesce(dSub.field("totalDonate", Long.class), DSL.inline(0L)).as("totalDonate"),
+                DSL.when(BOOK.AUTHOR_ACCOUNT_ID.eq(accountId), true).otherwise(false).as("isAuthor")
         )
                 .from(BOOK)
-                .join(GENRE).on(BOOK.GENRE_ID.eq(GENRE.GENRE_ID.cast(Integer.class))) // cast vì genre id là short
+                .join(GENRE).on(BOOK.GENRE_ID.eq(GENRE.GENRE_ID))
                 .join(ACCOUNT).on(BOOK.AUTHOR_ACCOUNT_ID.eq(ACCOUNT.ACCOUNT_ID))
                 .leftJoin(vSub).on(BOOK.BOOK_ID.eq(vSub.field("v_book_id", Integer.class)))
                 .leftJoin(rSub).on(BOOK.BOOK_ID.eq(rSub.field("r_book_id", Integer.class)))
@@ -233,9 +233,6 @@ public class BookRepository {
         if (bookDetail == null) {
             return null;
         }
-
-        List<ChapterOverviewDTO> chapters = chapterRepository.getChaptersInfo(bookId, accountId);
-        bookDetail.setChapters(chapters);
 
         List<TagDTO> tags = dsl.select(
                 TAG.TAG_ID.as("tagId"),

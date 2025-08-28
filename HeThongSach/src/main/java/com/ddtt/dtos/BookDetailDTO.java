@@ -18,6 +18,6 @@ public class BookDetailDTO {
     int totalRating;
     double avgRating;
     int totalDonate;
-    List<ChapterOverviewDTO> chapters;
+    boolean isAuthor;
     List<TagDTO> tags;
 }

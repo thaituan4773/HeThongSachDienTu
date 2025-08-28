@@ -32,14 +32,15 @@ public class BookService {
         return bookRepository.findAllBooks();
     }
 
-    @Cacheable("categoryPreview")
+    @Cacheable("category-preview-trending")
     public CategoryDTO findTrendingBooks(int days) {
         List<BookDTO> books = bookRepository.findTrendingBooks(days, limit);
         return new CategoryDTO("trending", "Thịnh hành", books);
     }
 
-    @Cacheable("categoryPreview")
+    @Cacheable("category-preview-newest")
     public CategoryDTO findNewestBooks() {
+        System.out.println("Loading books newest from DB");
         List<BookDTO> books = bookRepository.findNewestBooks(limit);
         return new CategoryDTO("newest", "Mới nhất", books);
     }
@@ -59,8 +60,9 @@ public class BookService {
                 .toList();
     }
 
-    @Cacheable("categoryPreview")
+    @Cacheable("category-preview-toprated")
     public CategoryDTO findTopRatedBooks() {
+        System.out.println("Loading books topRated from DB");
         List<BookDTO> books = bookRepository.findTopRatedBooks(limit);
         return new CategoryDTO("topRated", "Đánh giá cao nhất", books);
     }
@@ -79,11 +81,11 @@ public class BookService {
         }
         return bookRepository.getBooksByGenrePaged(genreId, page, pageSize, sort);
     }
-    
-    public PageResponseDTO<BookSummaryDTO> findBooksByAuthorPaged(int authorId, int page, boolean isAuthor){
+
+    public PageResponseDTO<BookSummaryDTO> findBooksByAuthorPaged(int authorId, int page, boolean isAuthor) {
         return bookRepository.getBooksByAuthorPaged(authorId, page, pageSize, isAuthor);
     }
-    
+
     public BookSummaryDTO createBook(BookCreateDTO dto, int authorId, CompletedFileUpload file) {
         if (file != null && file.getSize() > 0) {
             try {
@@ -96,6 +98,5 @@ public class BookService {
         }
         return bookRepository.createBook(dto, authorId);
     }
-    
 
 }
