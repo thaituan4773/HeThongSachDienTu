@@ -1,15 +1,18 @@
 micronaut:
   security:
     intercept-url-map:
-      - pattern: /api/chapters/*/comments/**
+      - pattern: /api/login
         access:
-          - isAuthenticated()
-      - pattern: /api/books
+          - isAnonymous()
+      - pattern: /api/register
         access:
-          - ADMIN
-      - pattern: /api/**
+          - isAnonymous()
+      - pattern: /api/resend
+        access:
+          - isAnonymous()
+      - pattern: /api/refresh
         access:
           - isAnonymous()
       - pattern: /**
         access:
-          - isAnonymous()
+          - isAuthenticated()

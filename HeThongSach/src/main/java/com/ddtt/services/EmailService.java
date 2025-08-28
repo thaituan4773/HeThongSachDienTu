@@ -11,8 +11,8 @@ public class EmailService {
 
     private final EmailRepository emailRepository;
 
-    public boolean sendEmail(int accountId, String email) {
-        return emailRepository.sendVerificationIfAllowed(accountId, email);
+    public boolean sendEmail(String email) {
+        return emailRepository.sendVerificationIfAllowed(email);
     }
 
     public void markEmailVerified(int accountId) {

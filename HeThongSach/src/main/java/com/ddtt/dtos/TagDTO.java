@@ -1,13 +1,11 @@
 package com.ddtt.dtos;
 
 import io.micronaut.serde.annotation.Serdeable;
-import java.util.List;
 import lombok.Value;
 
 @Value
 @Serdeable
-public class CategoryDTO {
-    String id;
-    String name;
-    List<BookDTO> books;
+public class TagDTO {
+    int tagId;
+    String tagName;
 }

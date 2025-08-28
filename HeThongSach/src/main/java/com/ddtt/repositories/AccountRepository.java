@@ -1,5 +1,6 @@
 package com.ddtt.repositories;
 
+import com.ddtt.dtos.AccountDTO;
 import com.ddtt.dtos.RegisterInfoDTO;
 import io.micronaut.core.annotation.Blocking;
 import jakarta.inject.Singleton;
@@ -18,7 +19,7 @@ public class AccountRepository {
     private final DSLContext dsl;
 
     @Transactional
-    public int addAccount(RegisterInfoDTO user) {
+    public void addAccount(RegisterInfoDTO user) {
         boolean exists = dsl.fetchExists(
                 dsl.selectOne()
                         .from(ACCOUNT)
@@ -48,7 +49,6 @@ public class AccountRepository {
         if (record == null) {
             throw new RuntimeException("Tạo tài khoản thất bại");
         }
-        return record.getAccountId();
     }
 
     public AccountRecord findByEmail(String email) {
@@ -80,6 +80,20 @@ public class AccountRepository {
             throw new SecurityException("Không tìm thấy tài khoản");
         }
         return record.value1();
+    }
+    
+    public AccountDTO getAccountById(int accountId){
+        return dsl.select(
+                ACCOUNT.ACCOUNT_ID.as("accountId"),
+                ACCOUNT.DISPLAY_NAME.as("displayName"),
+                ACCOUNT.EMAIL.as("email"),
+                ACCOUNT.AVATAR_URL.as("avatarURL"),
+                ACCOUNT.BALANCE.as("balance")
+        )
+                .from(ACCOUNT)
+                .where(ACCOUNT.ACCOUNT_ID.eq(accountId))
+                .and(ACCOUNT.DELETED_AT.isNull())
+                .fetchOneInto(AccountDTO.class);
     }
 
 }

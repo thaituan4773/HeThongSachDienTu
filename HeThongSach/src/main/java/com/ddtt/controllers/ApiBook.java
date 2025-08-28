@@ -28,12 +28,10 @@ public class ApiBook {
     private final int weekly = 7;
 
     @Get("/explore")
-    public HttpResponse<List<CategoryDTO>> explore(@Nullable Authentication authentication) {
+    public HttpResponse<List<CategoryDTO>> explore(Authentication authentication) {
         List<CategoryDTO> categories = new ArrayList<>();
-        if (authentication != null) {
-            Integer accountId = (Integer) authentication.getAttributes().get("accountId");
-            categories.add(recommendationService.recommendBooksForUserWithTags(accountId));
-        }
+        int accountId = (Integer) authentication.getAttributes().get("accountId");
+        categories.add(recommendationService.recommendBooksForUserWithTags(accountId));
         categories.add(bookService.findTrendingBooks(weekly));
         categories.add(bookService.findTopRatedBooks());
         categories.add(bookService.findNewestBooks());
@@ -42,35 +40,38 @@ public class ApiBook {
     }
 
     @Get("/books/{bookId}")
-    public HttpResponse<BookDetailDTO> viewBookDetail(@PathVariable int bookId) {
-        BookDetailDTO bookDetail = bookService.findBookDetail(bookId);
+    public HttpResponse<BookDetailDTO> viewBookDetail(@PathVariable int bookId, Authentication authentication) {
+        int accountId = (Integer) authentication.getAttributes().get("accountId");
+        BookDetailDTO bookDetail = bookService.getBookDetail(bookId, accountId);
         if (bookDetail == null) {
             return HttpResponse.notFound();
         }
         return HttpResponse.ok(bookDetail);
     }
-    
-    @Get("/search{?kw,page}")
+
+    @Get("/search")
     public PageResponseDTO<BookSummaryDTO> searchBooks(
-            @Nullable @QueryValue("kw") @Size(max = 200, message = "Keyword quá dài (tối đa 200 ký tự)")
-            String kw,
-            @QueryValue(value = "page", defaultValue = "1") @Min(value = 1, message = "page phải >= 1")
-            int page
+            @Nullable @QueryValue("kw") @Size(max = 200, message = "Keyword quá dài (tối đa 200 ký tự)") String kw,
+            @QueryValue(value = "page", defaultValue = "1") @Min(value = 1, message = "page phải >= 1") int page
     ) {
         return bookService.searchBooks(kw, page);
     }
-    
-    @Get("/genre/{genreId}{?sortMode,page}")
-    public HttpResponse<PageResponseDTO<BookSummaryDTO>> viewBookByGenre(
+
+    @Get("/genre/{genreId}")
+    public HttpResponse<PageResponseDTO<BookSummaryDTO>> getBookByGenre(
             @PathVariable int genreId,
             @Nullable @QueryValue("sortMode") String sort,
-            @QueryValue(value = "page", defaultValue = "1") @Min(value = 1, message = "page phải >= 1")
-            int page
+            @QueryValue(value = "page", defaultValue = "1") @Min(value = 1, message = "page phải >= 1") int page
     ) {
         return HttpResponse.ok(bookService.findBooksByGenrePaged(genreId, page, sort));
     }
-    
-    
-    
-    
+
+    @Get("/authors/{authorId}")
+    public HttpResponse<PageResponseDTO<BookSummaryDTO>> getBookByAuthor(
+            @PathVariable int authorId,
+            @QueryValue(value = "page", defaultValue = "1") @Min(value = 1, message = "page phải >= 1") int page
+    ) {
+        return HttpResponse.ok(bookService.findBooksByAuthorPaged(authorId, page, false));
+    }
+
 }

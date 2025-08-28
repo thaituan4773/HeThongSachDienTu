@@ -1,5 +1,6 @@
 package com.ddtt.controllers;
 
+import com.ddtt.dtos.AccountDTO;
 import com.ddtt.dtos.LoginRequestDTO;
 import com.ddtt.dtos.RegisterInfoDTO;
 import com.ddtt.services.AccountService;
@@ -9,9 +10,11 @@ import io.micronaut.http.HttpResponse;
 import io.micronaut.http.MediaType;
 import io.micronaut.http.annotation.Body;
 import io.micronaut.http.annotation.Controller;
+import io.micronaut.http.annotation.Get;
 import io.micronaut.http.annotation.Part;
 import io.micronaut.http.annotation.Post;
 import io.micronaut.http.multipart.CompletedFileUpload;
+import io.micronaut.security.authentication.Authentication;
 import jakarta.validation.Valid;
 import java.util.Map;
 import lombok.RequiredArgsConstructor;
@@ -35,32 +38,36 @@ public class ApiAuth {
         dto.setEmail(email);
         dto.setPassword(password);
 
-        try {
-            int accountId = accountService.addAccount(dto, avatar);
-            emailService.sendEmail(accountId, email);
+        accountService.addAccount(dto, avatar);
+        emailService.sendEmail(email);
 
-            return HttpResponse.created("Account registered successfully");
-        } catch (IllegalStateException e) {
-            return HttpResponse.status(409, "Email already exists");
-        } catch (Exception e) {
-            return HttpResponse.serverError("Unexpected error: " + e.getMessage());
-        }
+        return HttpResponse.created("Account registered successfully");
     }
 
-    @Post(value = "/login")
+    @Post("/resend")
+    public HttpResponse<?> resend(@Body("email") String email) {
+        return HttpResponse.ok(emailService.sendEmail(email));
+    }
+
+    @Post("/login")
     public HttpResponse<?> login(@Body @Valid LoginRequestDTO request) throws Exception {
         return HttpResponse.ok(accountService.login(request));
 
     }
 
-    @Post(value = "/refresh")
+    @Post("/refresh")
     public HttpResponse<?> refreshToken(@Body Map<String, String> request) throws Exception {
 
         String refreshToken = request.get("refreshToken");
         if (refreshToken == null || refreshToken.isBlank()) {
-            throw new IllegalStateException("Refresh token is required");
+            throw new IllegalStateException("Yêu cầu refresh token");
         }
         return HttpResponse.ok(accountService.refreshToken(refreshToken));
 
+    }
+
+    @Get("/me")
+    public HttpResponse<AccountDTO> getProfile(Authentication authentication) {
+        return HttpResponse.ok(accountService.getAccountById((Integer) authentication.getAttributes().get("accountId")));
     }
 }

@@ -17,8 +17,8 @@ public class ApiChapter {
     private final ChapterService chapterService;
 
     @Get("/chapters/{chapterId}")
-    public HttpResponse<ChapterContentDTO> readChapter(@PathVariable int chapterId, @Nullable Authentication auth) {
-        Integer accountId = (auth != null) ? (Integer) auth.getAttributes().get("accountId") : null;
+    public HttpResponse<ChapterContentDTO> readChapter(@PathVariable int chapterId, Authentication auth) {
+        int accountId = (Integer) auth.getAttributes().get("accountId");
         return HttpResponse.ok(chapterService.readChapter(chapterId, accountId));
     }
     

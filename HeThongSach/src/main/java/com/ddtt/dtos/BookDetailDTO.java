@@ -9,7 +9,9 @@ import lombok.Data;
 public class BookDetailDTO {
     String bookName;
     String genre;
-    Integer authorID;
+    String coverImageURL;
+    String authorName;
+    Integer authorId;
     String status;
     String description;
     int totalView;
@@ -17,4 +19,5 @@ public class BookDetailDTO {
     double avgRating;
     int totalDonate;
     List<ChapterOverviewDTO> chapters;
+    List<TagDTO> tags;
 }

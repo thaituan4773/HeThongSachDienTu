@@ -38,28 +38,21 @@ public class EmailRepository {
                 .body(body));
     }
 
-    //Các bước thực hiện:
-    //1: Kiểm tra account tồn tại & đã verify chưa
-    //2: Kiểm tra cooldown trong table email_verification_request
-    //3: Sinh token JWT
-    //4: Upsert row vào email_verification_request
-    //5: Gửi email
-    public boolean sendVerificationIfAllowed(int accountId, String email) {
-        // 1
+    public boolean sendVerificationIfAllowed(String email) {
         var acc = dsl.select(ACCOUNT.ACCOUNT_ID, ACCOUNT.EMAIL_VERIFIED)
                 .from(ACCOUNT)
-                .where(ACCOUNT.ACCOUNT_ID.eq(accountId))
+                .where(ACCOUNT.EMAIL.eq(email))
                 .fetchOne();
 
         if (acc == null) {
             throw new IllegalArgumentException("Account not found");
         }
+        int accountId = acc.get(ACCOUNT.ACCOUNT_ID);
         Boolean verified = acc.get(ACCOUNT.EMAIL_VERIFIED);
         if (verified != null && verified) {
             return false;
         }
 
-        // 2
         var rec = dsl.selectFrom(EMAIL_VERIFICATION_REQUEST)
                 .where(EMAIL_VERIFICATION_REQUEST.ACCOUNT_ID.eq(accountId))
                 .fetchOne();
@@ -73,7 +66,6 @@ public class EmailRepository {
             }
         }
 
-        // 3
         String token;
         try {
             token = jwtUtils.generateTokenForEmail(email);
@@ -81,7 +73,6 @@ public class EmailRepository {
             throw new RuntimeException("Cannot generate token", e);
         }
 
-        // 4
         if (rec == null) {
             dsl.insertInto(EMAIL_VERIFICATION_REQUEST)
                     .set(EMAIL_VERIFICATION_REQUEST.ACCOUNT_ID, accountId)
@@ -93,7 +84,6 @@ public class EmailRepository {
                     .where(EMAIL_VERIFICATION_REQUEST.ACCOUNT_ID.eq(accountId))
                     .execute();
         }
-        // 5
         sendVerificationEmail(email, token);
 
         return true;

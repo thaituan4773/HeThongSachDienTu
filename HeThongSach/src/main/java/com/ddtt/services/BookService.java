@@ -1,5 +1,8 @@
 package com.ddtt.services;
 
+import com.cloudinary.Cloudinary;
+import com.cloudinary.utils.ObjectUtils;
+import com.ddtt.dtos.BookCreateDTO;
 import com.ddtt.dtos.BookDTO;
 import com.ddtt.dtos.BookDetailDTO;
 import com.ddtt.dtos.BookSummaryDTO;
@@ -8,8 +11,11 @@ import com.ddtt.dtos.PageResponseDTO;
 import com.ddtt.repositories.BookRepository;
 import com.ddtt.repositories.GenreRepository;
 import io.micronaut.cache.annotation.Cacheable;
+import io.micronaut.http.multipart.CompletedFileUpload;
 import jakarta.inject.Singleton;
+import java.io.IOException;
 import java.util.List;
+import java.util.Map;
 import lombok.RequiredArgsConstructor;
 
 @Singleton
@@ -18,6 +24,7 @@ public class BookService {
 
     private final BookRepository bookRepository;
     private final GenreRepository genreRepository;
+    private final Cloudinary cloudinary;
     private final int limit = 30;
     private final int pageSize = 12;
 
@@ -58,8 +65,8 @@ public class BookService {
         return new CategoryDTO("topRated", "Đánh giá cao nhất", books);
     }
 
-    public BookDetailDTO findBookDetail(int bookId) {
-        return bookRepository.getBookDetail(bookId);
+    public BookDetailDTO getBookDetail(int bookId, int accountId) {
+        return bookRepository.getBookDetail(bookId, accountId);
     }
 
     public PageResponseDTO<BookSummaryDTO> searchBooks(String kw, int page) {
@@ -70,7 +77,25 @@ public class BookService {
         if (sort == null || sort.isBlank()) {
             sort = "trending";
         }
-        return bookRepository.findBooksByGenrePaged(genreId, page, pageSize, sort);
+        return bookRepository.getBooksByGenrePaged(genreId, page, pageSize, sort);
     }
+    
+    public PageResponseDTO<BookSummaryDTO> findBooksByAuthorPaged(int authorId, int page, boolean isAuthor){
+        return bookRepository.getBooksByAuthorPaged(authorId, page, pageSize, isAuthor);
+    }
+    
+    public BookSummaryDTO createBook(BookCreateDTO dto, int authorId, CompletedFileUpload file) {
+        if (file != null && file.getSize() > 0) {
+            try {
+                Map res = cloudinary.uploader()
+                        .upload(file.getBytes(), ObjectUtils.asMap("resource_type", "auto"));
+                dto.setCoverImageURL(res.get("secure_url").toString());
+            } catch (IOException ex) {
+                throw new RuntimeException("Lỗi upload ảnh lên Cloudinary", ex);
+            }
+        }
+        return bookRepository.createBook(dto, authorId);
+    }
+    
 
 }

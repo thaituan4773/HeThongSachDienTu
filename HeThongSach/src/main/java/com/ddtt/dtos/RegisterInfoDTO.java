@@ -7,16 +7,16 @@ import lombok.Data;
 
 @Data
 public class RegisterInfoDTO {
-    @NotBlank(message = "Display name is required")
-    @Size(min = 3, max = 20, message = "Display name must be 3..50 chars")
+    @NotBlank(message = "Yêu cầu tên hiển thị")
+    @Size(min = 3, max = 20, message = "Tên hiện thị phải dài từ 3 đến 20 ký tự")
     String displayName;
 
-    @NotBlank(message = "Password is required")
-    @Size(min = 6, message = "Password must be at least 6 characters")
+    @NotBlank(message = "Yêu cầu mật khẩu")
+    @Size(min = 6, message = "Mật khẩu phải ít nhất 6 ký tự")
     String password;
 
-    @NotBlank(message = "Email is required")
-    @Email(message = "Invalid email")
+    @NotBlank(message = "Yêu cầu email")
+    @Email(message = "Email không hợp lệ")
     String email;
 
     String avatarURL;

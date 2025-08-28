@@ -1,5 +1,6 @@
 package com.ddtt.repositories;
 
+import com.ddtt.dtos.TagDTO;
 import static com.ddtt.jooq.generated.tables.Book.BOOK;
 import static com.ddtt.jooq.generated.tables.BookTag.BOOK_TAG;
 import static com.ddtt.jooq.generated.tables.BookView.BOOK_VIEW;
@@ -34,6 +35,15 @@ public class TagRepository {
         return dsl.select(TAG.TAG_ID)
                 .from(TAG)
                 .fetch(TAG.TAG_ID);
+    }
+    
+    public List<TagDTO> getAllTags(){
+        return dsl.select(
+                TAG.TAG_ID.as("tagId"),
+                TAG.NAME.as("tagName")
+        )
+                .from(TAG)
+                .fetchInto(TagDTO.class);
     }
 
 }

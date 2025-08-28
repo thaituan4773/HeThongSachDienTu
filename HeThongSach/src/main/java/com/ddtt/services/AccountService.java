@@ -2,6 +2,7 @@ package com.ddtt.services;
 
 import com.cloudinary.Cloudinary;
 import com.cloudinary.utils.ObjectUtils;
+import com.ddtt.dtos.AccountDTO;
 import com.ddtt.dtos.LoginRequestDTO;
 import com.ddtt.dtos.TokenResponseDTO;
 import com.ddtt.dtos.RegisterInfoDTO;
@@ -24,7 +25,7 @@ public class AccountService {
     private final Cloudinary cloudinary;
     private final JwtUtils jwtUtils;
 
-    public int addAccount(RegisterInfoDTO info, CompletedFileUpload file) {
+    public void addAccount(RegisterInfoDTO info, CompletedFileUpload file) {
         if (file != null && file.getSize() > 0) {
             try {
                 Map res = cloudinary.uploader()
@@ -38,7 +39,7 @@ public class AccountService {
         }
         String hashed = BCrypt.hashpw(info.getPassword(), BCrypt.gensalt());
         info.setPassword(hashed);
-        return accountRepo.addAccount(info);
+        accountRepo.addAccount(info);
     }
 
     public TokenResponseDTO login(LoginRequestDTO req) throws Exception {
@@ -50,31 +51,39 @@ public class AccountService {
         if (!BCrypt.checkpw(req.getPassword(), hash)) {
             throw new SecurityException("Email hoặc password sai");
         }
+        String email = account.get("email", String.class);
         if (!account.get("email_verified", Boolean.class)) {
-            throw new ForbiddenException("Email chưa xác thực");
+            return new TokenResponseDTO(
+                    null,
+                    null,
+                    0,
+                    0,
+                    email
+            );
         }
 
-        int accountId = accountRepo.getIdByEmail(account.get("email", String.class));
-        String accessToken = jwtUtils.generateTokenForLogin(account.get("email", String.class), accountId);
-        String refreshToken = jwtUtils.generateRefreshToken(account.get("email", String.class));
+        int accountId = accountRepo.getIdByEmail(email);
+        String accessToken = jwtUtils.generateTokenForLogin(email, accountId);
+        String refreshToken = jwtUtils.generateRefreshToken(email);
         return new TokenResponseDTO(
                 accessToken,
                 refreshToken,
                 jwtUtils.getLoginExpirationMs(),
-                jwtUtils.getRefreshExpirationMs()
+                jwtUtils.getRefreshExpirationMs(),
+                null
         );
     }
 
     public TokenResponseDTO refreshToken(String refreshToken) throws Exception {
         if (refreshToken == null || refreshToken.isBlank()) {
-            throw new IllegalArgumentException("Refresh token is required");
+            throw new IllegalArgumentException("Yêu cầu refreshToken");
         }
 
         String email = jwtUtils.verifyRefreshToken(refreshToken);
 
         var account = accountRepo.findByEmail(email);
         if (account == null) {
-            throw new RuntimeException("Account not found");
+            throw new RuntimeException("Không tìm thấy tài khoản");
         }
         int accountId = account.get("account_id", Integer.class);
         String newAccessToken = jwtUtils.generateTokenForLogin(email, accountId);
@@ -84,7 +93,8 @@ public class AccountService {
                 newAccessToken,
                 newRefreshToken,
                 jwtUtils.getLoginExpirationMs(),
-                jwtUtils.getRefreshExpirationMs()
+                jwtUtils.getRefreshExpirationMs(),
+                null
         );
     }
 
@@ -94,6 +104,10 @@ public class AccountService {
 
     public int getIdByEmail(String email) {
         return accountRepo.getIdByEmail(email);
+    }
+
+    public AccountDTO getAccountById(int accountId) {
+        return accountRepo.getAccountById(accountId);
     }
 
 }
