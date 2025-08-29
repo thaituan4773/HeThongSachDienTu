@@ -11,8 +11,8 @@ public class RatingService {
 
     private final RatingRepository ratingRepository;
 
-    public RatingDTO rateBook(RatingDTO dto) {
-        return ratingRepository.upsertRating(dto)
+    public RatingDTO rateBook(RatingDTO dto, int accountId) {
+        return ratingRepository.upsertRating(dto, accountId)
                 .orElseThrow(() -> new IllegalArgumentException(
                 "Chủ sách không thể đánh giá sách của chính họ"
         ));

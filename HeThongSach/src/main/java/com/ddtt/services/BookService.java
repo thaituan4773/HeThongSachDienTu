@@ -4,7 +4,7 @@ import com.cloudinary.Cloudinary;
 import com.cloudinary.utils.ObjectUtils;
 import com.ddtt.dtos.BookCreateDTO;
 import com.ddtt.dtos.BookDTO;
-import com.ddtt.dtos.BookDetailDTO;
+import com.ddtt.dtos.BookFullDetailDTO;
 import com.ddtt.dtos.BookSummaryDTO;
 import com.ddtt.dtos.CategoryDTO;
 import com.ddtt.dtos.PageResponseDTO;
@@ -40,7 +40,6 @@ public class BookService {
 
     @Cacheable("category-preview-newest")
     public CategoryDTO findNewestBooks() {
-        System.out.println("Loading books newest from DB");
         List<BookDTO> books = bookRepository.findNewestBooks(limit);
         return new CategoryDTO("newest", "Mới nhất", books);
     }
@@ -62,12 +61,11 @@ public class BookService {
 
     @Cacheable("category-preview-toprated")
     public CategoryDTO findTopRatedBooks() {
-        System.out.println("Loading books topRated from DB");
         List<BookDTO> books = bookRepository.findTopRatedBooks(limit);
         return new CategoryDTO("topRated", "Đánh giá cao nhất", books);
     }
 
-    public BookDetailDTO getBookDetail(int bookId, int accountId) {
+    public BookFullDetailDTO getBookDetail(int bookId, int accountId) {
         return bookRepository.getBookDetail(bookId, accountId);
     }
 

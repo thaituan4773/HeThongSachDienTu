@@ -6,7 +6,7 @@ import lombok.Data;
 
 @Data
 @Serdeable
-public class BookDetailDTO {
+public class BookFullDetailDTO {
     String bookName;
     String genre;
     String coverImageURL;

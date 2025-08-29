@@ -2,9 +2,8 @@ package com.ddtt.repositories;
 
 import com.ddtt.dtos.BookCreateDTO;
 import com.ddtt.dtos.BookDTO;
-import com.ddtt.dtos.BookDetailDTO;
+import com.ddtt.dtos.BookFullDetailDTO;
 import com.ddtt.dtos.BookSummaryDTO;
-import com.ddtt.dtos.ChapterOverviewDTO;
 import com.ddtt.dtos.PageResponseDTO;
 import com.ddtt.dtos.TagDTO;
 import static com.ddtt.jooq.generated.tables.Book.BOOK;
@@ -104,7 +103,6 @@ public class BookRepository {
     }
 
     public List<BookDTO> findNewestBooks(int limit) {
-        System.out.println("Loading books for newest from DB");
         return dsl.select(
                 BOOK.BOOK_ID.as("bookId"),
                 BOOK.TITLE.as("title"),
@@ -177,9 +175,13 @@ public class BookRepository {
         // R = avgRatingF
         // C = globalAvg
         // m = hằng số
-        Field<Double> bayesScore = vDouble.mul(avgRatingF)
-                .plus(mParam.mul(cParam))
-                .divide(vDouble.plus(mParam));
+        Field<Double> bayesScore = DSL
+                .coalesce(
+                        vDouble.mul(avgRatingF)
+                                .plus(mParam.mul(cParam))
+                                .divide(vDouble.plus(mParam)),
+                        cParam
+                );
 
         return dsl.select(
                 BOOK.BOOK_ID.as("bookId"),
@@ -200,13 +202,13 @@ public class BookRepository {
                 .fetchInto(BookDTO.class);
     }
 
-    public BookDetailDTO getBookDetail(int bookId, int accountId) {
+    public BookFullDetailDTO getBookDetail(int bookId, int accountId) {
 
         var vSub = viewsSub();
         var rSub = ratingsSub();
         var dSub = donationsSub();
 
-        BookDetailDTO bookDetail = dsl.select(
+        BookFullDetailDTO bookDetail = dsl.select(
                 BOOK.TITLE.as("bookName"),
                 GENRE.NAME.as("genre"),
                 BOOK.COVER_IMAGE_URL.as("coverImageURL"),
@@ -228,7 +230,7 @@ public class BookRepository {
                 .leftJoin(dSub).on(BOOK.BOOK_ID.eq(dSub.field("d_book_id", Integer.class)))
                 .where(BOOK.BOOK_ID.eq(bookId))
                 .and(BOOK.DELETED_AT.isNull())
-                .fetchOneInto(BookDetailDTO.class);
+                .fetchOneInto(BookFullDetailDTO.class);
 
         if (bookDetail == null) {
             return null;

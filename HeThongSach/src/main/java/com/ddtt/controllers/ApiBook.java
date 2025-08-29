@@ -1,6 +1,6 @@
 package com.ddtt.controllers;
 
-import com.ddtt.dtos.BookDetailDTO;
+import com.ddtt.dtos.BookFullDetailDTO;
 import com.ddtt.dtos.BookSummaryDTO;
 import com.ddtt.dtos.CategoryDTO;
 import com.ddtt.dtos.PageResponseDTO;
@@ -40,16 +40,16 @@ public class ApiBook {
     }
 
     @Get("/books/{bookId}")
-    public HttpResponse<BookDetailDTO> viewBookDetail(@PathVariable int bookId, Authentication authentication) {
+    public HttpResponse<BookFullDetailDTO> viewBookDetail(@PathVariable int bookId, Authentication authentication) {
         int accountId = (Integer) authentication.getAttributes().get("accountId");
-        BookDetailDTO bookDetail = bookService.getBookDetail(bookId, accountId);
+        BookFullDetailDTO bookDetail = bookService.getBookDetail(bookId, accountId);
         if (bookDetail == null) {
             return HttpResponse.notFound();
         }
         return HttpResponse.ok(bookDetail);
     }
 
-    @Get("/search")
+    @Get("/books/search")
     public PageResponseDTO<BookSummaryDTO> searchBooks(
             @Nullable @QueryValue("kw") @Size(max = 200, message = "Keyword quá dài (tối đa 200 ký tự)") String kw,
             @QueryValue(value = "page", defaultValue = "1") @Min(value = 1, message = "page phải >= 1") int page
@@ -57,10 +57,10 @@ public class ApiBook {
         return bookService.searchBooks(kw, page);
     }
 
-    @Get("/genre/{genreId}")
+    @Get("/genre/{genreId}/books")
     public HttpResponse<PageResponseDTO<BookSummaryDTO>> getBookByGenre(
             @PathVariable int genreId,
-            @Nullable @QueryValue("sortMode") String sort,
+            @Nullable @QueryValue("sortMode") String sort, // "trending", "views", "topRated", "newest"
             @QueryValue(value = "page", defaultValue = "1") @Min(value = 1, message = "page phải >= 1") int page
     ) {
         return HttpResponse.ok(bookService.findBooksByGenrePaged(genreId, page, sort));
