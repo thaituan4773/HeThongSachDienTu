@@ -22,8 +22,8 @@ public class RecommendationService {
     private final TagRepository tagRepository;
 
     private final int limit = 30;
-    private final double alpha = 0.7;          // weight của genre
-    private final double beta = 0.3;           // weight của tag
+    private final double alpha = 0.7; // weight của genre
+    private final double beta = 0.3; // weight của tag
     private final double explorationRate = 0.1;
 
     public CategoryDTO recommendBooksForUserWithTags(int userId) {
@@ -32,7 +32,7 @@ public class RecommendationService {
         Map<Integer, Integer> tagCounts = tagRepository.countTagsByUser(userId, 30);
 
         if (genreCounts.isEmpty() && tagCounts.isEmpty()) {
-            List<BookDTO> trending = bookRepository.findTrendingBooks(7, limit);
+            List<BookDTO> trending = bookRepository.findTrendingBooks(limit);
             return new CategoryDTO("recommended", "Dành cho bạn", trending);
         }
 
@@ -106,7 +106,7 @@ public class RecommendationService {
         }
 
         if (result.size() < limit) {
-            List<BookDTO> trending = bookRepository.findTrendingBooks(7, limit * 2);
+            List<BookDTO> trending = bookRepository.findTrendingBooks(limit * 2);
             for (BookDTO b : trending) {
                 if (result.size() >= limit) break;
                 if (chosenBookIds.add(b.getBookId())) {

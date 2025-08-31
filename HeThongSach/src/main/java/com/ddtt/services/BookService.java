@@ -34,7 +34,7 @@ public class BookService {
 
     @Cacheable("category-preview-trending")
     public CategoryDTO findTrendingBooks(int days) {
-        List<BookDTO> books = bookRepository.findTrendingBooks(days, limit);
+        List<BookDTO> books = bookRepository.findTrendingBooks(limit);
         return new CategoryDTO("trending", "Thịnh hành", books);
     }
 
@@ -66,7 +66,7 @@ public class BookService {
     }
 
     public BookFullDetailDTO getBookDetail(int bookId, int accountId) {
-        return bookRepository.getBookDetail(bookId, accountId);
+        return bookRepository.getBookFullDetail(bookId, accountId);
     }
 
     public PageResponseDTO<BookSummaryDTO> searchBooks(String kw, int page) {

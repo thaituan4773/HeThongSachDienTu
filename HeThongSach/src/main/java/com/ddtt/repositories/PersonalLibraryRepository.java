@@ -2,6 +2,7 @@ package com.ddtt.repositories;
 
 import com.ddtt.dtos.PageResponseDTO;
 import com.ddtt.dtos.PersonalLibraryBookDTO;
+import com.ddtt.exceptions.DuplicateException;
 import io.micronaut.core.annotation.Blocking;
 import jakarta.inject.Singleton;
 import lombok.RequiredArgsConstructor;
@@ -11,7 +12,12 @@ import static com.ddtt.jooq.generated.tables.Chapter.CHAPTER;
 import static com.ddtt.jooq.generated.tables.PersonalLibrary.PERSONAL_LIBRARY;
 import static com.ddtt.jooq.generated.tables.ReadingProgress.READING_PROGRESS;
 import com.ddtt.repository.conditions.ChapterConditions;
+import jakarta.persistence.EntityExistsException;
+import jakarta.transaction.Transactional;
 import java.time.OffsetDateTime;
+import java.util.Collections;
+import java.util.List;
+import org.jooq.Condition;
 import org.jooq.Field;
 import org.jooq.SortField;
 import org.jooq.impl.DSL;
@@ -55,13 +61,12 @@ public class PersonalLibraryRepository {
                 .minus(DSL.coalesce(readChaptersField, DSL.inline(0)))
                 .as("unreadChapters");
 
-        // Câu query chính
         var base = dsl.select(
                 BOOK.BOOK_ID.as("bookId"),
                 BOOK.TITLE.as("title"),
                 BOOK.COVER_IMAGE_URL.as("coverImageURL"),
                 totalChaptersField.as("totalChapters"),
-                unreadChaptersField,
+                unreadChaptersField.as("unreadChapters"),
                 PERSONAL_LIBRARY.FOLLOWED_AT.as("addedAt"),
                 READING_PROGRESS.LAST_UPDATED_AT.as("lastReadAt")
         )
@@ -79,7 +84,6 @@ public class PersonalLibraryRepository {
             base = base.and(unreadChaptersField.eq(0));
         }
 
-        // sort
         SortField<?> sortField;
         sortField = switch (sortBy != null ? sortBy : "title") {
             case "unreadChapters" ->
@@ -92,9 +96,8 @@ public class PersonalLibraryRepository {
                 desc ? PERSONAL_LIBRARY.FOLLOWED_AT.desc() : PERSONAL_LIBRARY.FOLLOWED_AT.asc();
             default ->
                 desc ? BOOK.TITLE.desc() : BOOK.TITLE.asc();
-        }; // "title"
+        };
 
-        // query dữ liệu trang đầu tiên
         var items = base
                 .orderBy(sortField)
                 .limit(size)
@@ -109,7 +112,6 @@ public class PersonalLibraryRepository {
                 record.get("lastReadAt", OffsetDateTime.class)
         ));
 
-        // tổng (chỉ tính ở page 1)
         Long total = null;
         Integer totalPages = null;
         if (page == 1) {
@@ -125,4 +127,60 @@ public class PersonalLibraryRepository {
                 items
         );
     }
+
+    @Transactional
+    public void addBookToLibrary(int accountId, int bookId) {
+        boolean exists = dsl.fetchExists(
+                dsl.selectOne()
+                        .from(PERSONAL_LIBRARY)
+                        .where(PERSONAL_LIBRARY.ACCOUNT_ID.eq(accountId))
+                        .and(PERSONAL_LIBRARY.BOOK_ID.eq(bookId))
+        );
+
+        if (exists) {
+            throw new DuplicateException(accountId, bookId);
+        }
+        // Insert mới
+        dsl.insertInto(PERSONAL_LIBRARY)
+                .set(PERSONAL_LIBRARY.ACCOUNT_ID, accountId)
+                .set(PERSONAL_LIBRARY.BOOK_ID, bookId)
+                .set(PERSONAL_LIBRARY.FOLLOWED_AT, OffsetDateTime.now())
+                .execute();
+    }
+
+//    public List<PersonalLibraryBookDTO> searchLibraryBooks(int accountId, String keyword) {
+//        if (keyword == null || keyword.isBlank()) {
+//            return Collections.emptyList();
+//        }
+//
+//        String kw = keyword.trim().toLowerCase();
+//
+//        Condition prefixMatch = DSL.lower(BOOK.TITLE).likeIgnoreCase(kw + "%");
+//        Condition containsMatch = DSL.lower(BOOK.TITLE).likeIgnoreCase("%" + kw + "%");
+//
+//        return dsl.select(
+//                BOOK.BOOK_ID,
+//                BOOK.TITLE,
+//                BOOK.COVER_IMAGE_URL,
+//                BOOK.TOTAL_CHAPTERS,
+//                BOOK.TOTAL_CHAPTERS.minus(DSL.coalesce(READ_PROGRESS.LAST_READ_CHAPTER, 0)).as("unreadChapters"),
+//                PERSONAL_LIBRARY.FOLLOWED_AT.as("addedAt"),
+//                READ_PROGRESS.LAST_READ_AT.as("lastReadAt")
+//        )
+//                .from(PERSONAL_LIBRARY)
+//                .join(BOOK).on(BOOK.BOOK_ID.eq(PERSONAL_LIBRARY.BOOK_ID))
+//                // giả sử có bảng read_progress(account_id, book_id, last_read_chapter, last_read_at)
+//                .leftJoin(READ_PROGRESS).on(
+//                READ_PROGRESS.ACCOUNT_ID.eq(PERSONAL_LIBRARY.ACCOUNT_ID)
+//                        .and(READ_PROGRESS.BOOK_ID.eq(PERSONAL_LIBRARY.BOOK_ID))
+//        )
+//                .where(PERSONAL_LIBRARY.ACCOUNT_ID.eq(accountId))
+//                .and(prefixMatch.or(containsMatch))
+//                .orderBy(
+//                        DSL.when(prefixMatch, 0).otherwise(1), // ưu tiên prefix match
+//                        BOOK.TITLE.asc()
+//                )
+//                .fetchInto(PersonalLibraryBookDTO.class);
+//    }
+
 }

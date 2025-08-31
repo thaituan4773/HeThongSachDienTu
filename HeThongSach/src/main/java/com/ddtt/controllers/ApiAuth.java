@@ -38,7 +38,7 @@ public class ApiAuth {
         dto.setPassword(password);
 
         accountService.addAccount(dto, avatar);
-        emailService.sendEmail(email);
+//        emailService.sendEmail(email);
 
         return HttpResponse.created("Account registered successfully");
     }

@@ -20,8 +20,8 @@ public class GlobalExceptionHandler implements ExceptionHandler<Exception, HttpR
         if (ex instanceof IllegalStateException) {
             return HttpResponse.status(HttpStatus.CONFLICT).body(Map.of("error", ex.getMessage()));
         }
-        if (ex instanceof RuntimeException) {
-            return HttpResponse.badRequest().body(Map.of("error", ex.getMessage()));
+        if (ex instanceof DuplicateException) {
+            return HttpResponse.status(HttpStatus.UNPROCESSABLE_ENTITY).body(Map.of("error", ex.getMessage()));
         }
         if (ex instanceof ParseException) {
             return HttpResponse.badRequest().body(Map.of("error", "Token không phải định dạng JWT hợp lệ"));
@@ -35,8 +35,11 @@ public class GlobalExceptionHandler implements ExceptionHandler<Exception, HttpR
         if (ex instanceof ForbiddenException) {
             return HttpResponse.status(HttpStatus.FORBIDDEN).body(Map.of("error", ex.getMessage()));
         }
-        if (ex instanceof NotFoundException ) {
+        if (ex instanceof NotFoundException) {
             return HttpResponse.status(HttpStatus.NOT_FOUND).body(Map.of("error", ex.getMessage()));
+        }
+        if (ex instanceof RuntimeException) {
+            return HttpResponse.badRequest().body(Map.of("error", ex.getMessage()));
         }
         return HttpResponse.serverError().body(Map.of("error", "Internal server error: " + ex.getMessage()));
     }

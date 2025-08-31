@@ -2,16 +2,16 @@ package com.ddtt.dtos;
 
 import io.micronaut.serde.annotation.Serdeable;
 import lombok.Builder;
-import lombok.Value;
+import lombok.Data;
 
-@Value
+@Data
 @Builder
 @Serdeable
 public class BookSummaryDTO {
     int bookId;
     String title;
     String coverImageURL;
-    int totalView;
-    int totalRating;
+    long totalView;
+    long totalRating;
     double avgRating;
 }

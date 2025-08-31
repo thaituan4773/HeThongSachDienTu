@@ -7,6 +7,7 @@ import lombok.Data;
 @Data
 @Serdeable
 public class BookFullDetailDTO {
+
     String bookName;
     String genre;
     String coverImageURL;
@@ -19,5 +20,6 @@ public class BookFullDetailDTO {
     double avgRating;
     int totalDonate;
     boolean isAuthor;
+    int userScore;
     List<TagDTO> tags;
 }

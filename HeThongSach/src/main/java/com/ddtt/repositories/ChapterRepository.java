@@ -27,11 +27,6 @@ public class ChapterRepository {
 
     private final DSLContext dsl;
 
-    public Condition readableChapter() {
-        return CHAPTER.STATUS.eq("published")
-                .and(CHAPTER.DELETED_AT.isNull());
-    }
-
     private Field<Boolean> hasUnlockedField(int accountId) {
         return DSL.case_()
                 .when(CHAPTER.COIN_PRICE.eq(0), DSL.inline(true))
@@ -128,7 +123,7 @@ public class ChapterRepository {
     }
 
     private void recordProgress(int chapterId, int accountId) {
-        // Lấy bookId và position
+        
         var chapter = dsl.select(CHAPTER.BOOK_ID, CHAPTER.POSITION)
                 .from(CHAPTER)
                 .where(CHAPTER.CHAPTER_ID.eq(chapterId))
