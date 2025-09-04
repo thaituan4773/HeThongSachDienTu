@@ -10,6 +10,8 @@ import org.jooq.DSLContext;
 import static com.ddtt.jooq.generated.tables.Comment.COMMENT;
 import static com.ddtt.jooq.generated.tables.Account.ACCOUNT;
 import static com.ddtt.jooq.generated.tables.CommentLike.COMMENT_LIKE;
+import com.ddtt.jooq.generated.tables.Comment;
+import jakarta.transaction.Transactional;
 import java.util.List;
 import org.jooq.Condition;
 import org.jooq.SortField;
@@ -37,33 +39,32 @@ public class CommentRepository {
 
         SortField<?>[] orderFields;
         orderFields = switch (sort == null ? "" : sort.toLowerCase()) {
-            case "mostliked" ->
+            case "newest" ->
                 new SortField<?>[]{
                     COMMENT.CREATED_AT.desc(),
                     COMMENT.COMMENT_ID.desc()
                 };
             default ->
                 new SortField<?>[]{
-                    COMMENT.LIKES_COUNT.desc(),
+                    COMMENT.SCORE.desc(),
                     COMMENT.CREATED_AT.desc(),
                     COMMENT.COMMENT_ID.desc()
                 };
         };
-
+        Comment child = COMMENT.as("child");
         List<CommentDTO> items = dsl.select(
                 COMMENT.COMMENT_ID.as("commentId"),
                 COMMENT.ACCOUNT_ID.as("accountId"),
                 ACCOUNT.DISPLAY_NAME.as("displayName"),
                 ACCOUNT.AVATAR_URL.as("avatarUrl"),
                 COMMENT.CONTENT.as("content"),
-                COMMENT.LIKES_COUNT.as("likesCount"),
+                COMMENT.SCORE.as("score"),
                 COMMENT.CREATED_AT.as("createdAt"),
-                DSL.coalesce(
-                        DSL.selectCount()
-                                .from(COMMENT)
-                                .where(COMMENT.PARENT_COMMENT_ID.eq(COMMENT.COMMENT_ID)
-                                        .and(COMMENT.DELETED_AT.isNull())), DSL.inline(0))
-                        .as("replyCount"),
+                DSL.selectCount()
+                        .from(child)
+                        .where(child.PARENT_COMMENT_ID.eq(COMMENT.COMMENT_ID)
+                                .and(child.DELETED_AT.isNull()))
+                        .asField("replyCount"),
                 COMMENT_LIKE.IS_LIKE.as("likedByCurrentUser")
         )
                 .from(COMMENT)
@@ -96,7 +97,7 @@ public class CommentRepository {
                 ACCOUNT.DISPLAY_NAME.as("displayName"),
                 ACCOUNT.AVATAR_URL.as("avatarUrl"),
                 COMMENT.CONTENT.as("content"),
-                COMMENT.LIKES_COUNT.as("likesCount"),
+                COMMENT.SCORE.as("score"),
                 COMMENT.CREATED_AT.as("createdAt"),
                 COMMENT_LIKE.IS_LIKE.as("likedByCurrentUser"),
                 COMMENT.PARENT_COMMENT_ID.as("parentCommentId")
@@ -105,10 +106,11 @@ public class CommentRepository {
                 .leftJoin(ACCOUNT).on(COMMENT.ACCOUNT_ID.eq(ACCOUNT.ACCOUNT_ID))
                 .leftJoin(COMMENT_LIKE).on(COMMENT.COMMENT_ID.eq(COMMENT_LIKE.COMMENT_ID).and(COMMENT_LIKE.ACCOUNT_ID.eq(currentAccountId)))
                 .where(condition)
+                .orderBy(COMMENT.CREATED_AT.asc())
                 .limit(size)
                 .offset(offset)
                 .fetchInto(ReplyDTO.class);
-        
+
         Long total = null;
         Integer totalPages = null;
         if (page == 1) {
@@ -120,4 +122,180 @@ public class CommentRepository {
         return new PageResponseDTO<>(total, page, size, totalPages, items);
     }
 
+    public CommentDTO addComment(int chapterId, int accountId, String content) {
+        // Insert comment
+        var record = dsl.insertInto(COMMENT)
+                .set(COMMENT.CHAPTER_ID, chapterId)
+                .set(COMMENT.ACCOUNT_ID, accountId)
+                .set(COMMENT.CONTENT, content)
+                .set(COMMENT.SCORE, 0)
+                .set(COMMENT.CREATED_AT, DSL.currentOffsetDateTime())
+                .returning(COMMENT.COMMENT_ID, COMMENT.ACCOUNT_ID, COMMENT.CONTENT,
+                        COMMENT.SCORE, COMMENT.CREATED_AT)
+                .fetchOne();
+
+        if (record == null) {
+            throw new RuntimeException("Failed to insert comment");
+        }
+
+        var acc = dsl.select(ACCOUNT.DISPLAY_NAME, ACCOUNT.AVATAR_URL)
+                .from(ACCOUNT)
+                .where(ACCOUNT.ACCOUNT_ID.eq(accountId))
+                .fetchOne();
+
+        String displayName = acc != null ? acc.get(ACCOUNT.DISPLAY_NAME) : null;
+        String avatarUrl = acc != null ? acc.get(ACCOUNT.AVATAR_URL) : null;
+
+        return new CommentDTO(
+                record.getCommentId(),
+                record.getAccountId(),
+                displayName,
+                avatarUrl,
+                record.getContent(),
+                record.getScore(),
+                record.getCreatedAt(),
+                0, // replyCount
+                null // likedByCurrentUser
+        );
+    }
+
+    public ReplyDTO addReply(int parentCommentId, int accountId, String content) {
+        // Kiểm tra parent comment có tồn tại và chưa bị xóa
+        var parentExists = dsl.fetchExists(
+                dsl.selectOne()
+                        .from(COMMENT)
+                        .where(COMMENT.COMMENT_ID.eq(parentCommentId))
+                        .and(COMMENT.DELETED_AT.isNull())
+        );
+
+        if (!parentExists) {
+            throw new RuntimeException("Parent comment not found or deleted");
+        }
+
+        // Lấy chapter_id từ parent comment để gán vào reply
+        Integer chapterId = dsl.select(COMMENT.CHAPTER_ID)
+                .from(COMMENT)
+                .where(COMMENT.COMMENT_ID.eq(parentCommentId))
+                .fetchOneInto(Integer.class);
+
+        // Insert reply
+        var record = dsl.insertInto(COMMENT)
+                .set(COMMENT.CHAPTER_ID, chapterId)
+                .set(COMMENT.ACCOUNT_ID, accountId)
+                .set(COMMENT.CONTENT, content)
+                .set(COMMENT.PARENT_COMMENT_ID, parentCommentId)
+                .set(COMMENT.SCORE, 0)
+                .set(COMMENT.CREATED_AT, DSL.currentOffsetDateTime())
+                .returning(COMMENT.COMMENT_ID, COMMENT.ACCOUNT_ID, COMMENT.CONTENT,
+                        COMMENT.SCORE, COMMENT.CREATED_AT, COMMENT.PARENT_COMMENT_ID)
+                .fetchOne();
+
+        if (record == null) {
+            throw new RuntimeException("Failed to insert reply");
+        }
+
+        // Lấy thông tin account
+        var acc = dsl.select(ACCOUNT.DISPLAY_NAME, ACCOUNT.AVATAR_URL)
+                .from(ACCOUNT)
+                .where(ACCOUNT.ACCOUNT_ID.eq(accountId))
+                .fetchOne();
+
+        String displayName = acc != null ? acc.get(ACCOUNT.DISPLAY_NAME) : null;
+        String avatarUrl = acc != null ? acc.get(ACCOUNT.AVATAR_URL) : null;
+
+        return new ReplyDTO(
+                record.getCommentId(),
+                record.getAccountId(),
+                displayName,
+                avatarUrl,
+                record.getContent(),
+                record.getScore(),
+                record.getCreatedAt(),
+                null, // likedByCurrentUser
+                record.getParentCommentId()
+        );
+    }
+
+    public boolean likeOrDislikeComment(int commentId, int accountId, boolean isLike) {
+        dsl.insertInto(COMMENT_LIKE)
+                .set(COMMENT_LIKE.COMMENT_ID, commentId)
+                .set(COMMENT_LIKE.ACCOUNT_ID, accountId)
+                .set(COMMENT_LIKE.IS_LIKE, isLike)
+                .onConflict(COMMENT_LIKE.COMMENT_ID, COMMENT_LIKE.ACCOUNT_ID)
+                .doUpdate()
+                .set(COMMENT_LIKE.IS_LIKE, isLike)
+                .execute();
+
+        return true;
+    }
+
+    public boolean deleteLikeOrDislike(int commentId, int accountId) {
+        int result = dsl.deleteFrom(COMMENT_LIKE)
+                .where(COMMENT_LIKE.COMMENT_ID.eq(commentId)
+                        .and(COMMENT_LIKE.ACCOUNT_ID.eq(accountId)))
+                .execute();
+
+        return result > 0;
+    }
+
+    @Transactional
+    public boolean deleteComment(int commentId, int accountId) {
+        // lấy comment để kiểm tra
+        var record = dsl.select(COMMENT.PARENT_COMMENT_ID)
+                .from(COMMENT)
+                .where(COMMENT.COMMENT_ID.eq(commentId))
+                .and(COMMENT.ACCOUNT_ID.eq(accountId))
+                .and(COMMENT.DELETED_AT.isNull())
+                .fetchOne();
+
+        if (record == null) {
+            return false;
+        }
+
+        boolean isRoot = record.get(COMMENT.PARENT_COMMENT_ID) == null;
+
+        // Xoá like trước
+        dsl.deleteFrom(COMMENT_LIKE)
+                .where(COMMENT_LIKE.COMMENT_ID.eq(commentId))
+                .execute();
+
+        if (isRoot) {
+            // Nếu là comment gốc
+            // Xoá mềm comment gốc
+            int updated = dsl.update(COMMENT)
+                    .set(COMMENT.DELETED_AT, DSL.currentOffsetDateTime())
+                    .where(COMMENT.COMMENT_ID.eq(commentId))
+                    .execute();
+
+            // Xoá mềm toàn bộ reply
+            var replies = dsl.select(COMMENT.COMMENT_ID)
+                    .from(COMMENT)
+                    .where(COMMENT.PARENT_COMMENT_ID.eq(commentId))
+                    .and(COMMENT.DELETED_AT.isNull())
+                    .fetch(COMMENT.COMMENT_ID);
+
+            if (!replies.isEmpty()) {
+                // Xoá like của tất cả reply
+                dsl.deleteFrom(COMMENT_LIKE)
+                        .where(COMMENT_LIKE.COMMENT_ID.in(replies))
+                        .execute();
+
+                // Xoá mềm reply
+                dsl.update(COMMENT)
+                        .set(COMMENT.DELETED_AT, DSL.currentOffsetDateTime())
+                        .where(COMMENT.COMMENT_ID.in(replies))
+                        .execute();
+            }
+
+            return updated > 0;
+        } else {
+            // Nếu là reply
+            // Xóa mềm reply
+            int updated = dsl.update(COMMENT)
+                    .set(COMMENT.DELETED_AT, DSL.currentOffsetDateTime())
+                    .where(COMMENT.COMMENT_ID.eq(commentId))
+                    .execute();
+            return updated > 0;
+        }
+    }
 }

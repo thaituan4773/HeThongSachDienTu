@@ -13,7 +13,7 @@ public class ReplyDTO {
     String displayName;
     String avatarUrl;
     String content;
-    int likesCount;
+    int score;
     OffsetDateTime createdAt;
     Boolean likedByCurrentUser;
     int parentCommentId;

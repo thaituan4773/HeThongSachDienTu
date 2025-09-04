@@ -14,6 +14,7 @@ import static com.ddtt.jooq.generated.tables.Tag.TAG;
 import static com.ddtt.jooq.generated.tables.BookTag.BOOK_TAG;
 import static com.ddtt.jooq.generated.tables.Account.ACCOUNT;
 import static com.ddtt.jooq.generated.tables.BookStats.BOOK_STATS;
+import static com.ddtt.jooq.generated.tables.PersonalLibrary.PERSONAL_LIBRARY;
 import com.ddtt.repository.conditions.BookConditions;
 import io.micronaut.core.annotation.Blocking;
 import jakarta.inject.Singleton;
@@ -25,7 +26,6 @@ import org.jooq.Condition;
 import org.jooq.DSLContext;
 import org.jooq.Field;
 import org.jooq.SortField;
-import org.jooq.Table;
 import org.jooq.impl.DSL;
 
 @Singleton
@@ -167,6 +167,7 @@ public class BookRepository {
                 BOOK_STATS.AVG_RATING.as("avgRating"),
                 BOOK_STATS.TOTAL_DONATE.as("totalDonate"),
                 DSL.when(BOOK.AUTHOR_ACCOUNT_ID.eq(accountId), true).otherwise(false).as("isAuthor"),
+                DSL.when(PERSONAL_LIBRARY.BOOK_ID.eq(bookId), true).otherwise(false).as("isInLibrary"),
                 DSL.coalesce(RATING.SCORE, DSL.inline(0)).as("userScore")
         )
                 .from(BOOK)
@@ -174,6 +175,7 @@ public class BookRepository {
                 .join(ACCOUNT).on(BOOK.AUTHOR_ACCOUNT_ID.eq(ACCOUNT.ACCOUNT_ID))
                 .leftJoin(BOOK_STATS).on(BOOK.BOOK_ID.eq(BOOK_STATS.BOOK_ID))
                 .leftJoin(RATING).on(RATING.BOOK_ID.eq(BOOK.BOOK_ID).and(RATING.ACCOUNT_ID.eq(accountId)))
+                .leftJoin(PERSONAL_LIBRARY).on(PERSONAL_LIBRARY.BOOK_ID.eq(BOOK.BOOK_ID)).and(PERSONAL_LIBRARY.ACCOUNT_ID.eq(accountId))
                 .where(BOOK.BOOK_ID.eq(bookId))
                 .and(BOOK.DELETED_AT.isNull())
                 .fetchOneInto(BookFullDetailDTO.class);
@@ -264,7 +266,6 @@ public class BookRepository {
         Condition condition = BOOK.GENRE_ID.eq(genreId)
                 .and(BookConditions.discoverableStatus());
 
-        Table<?> trendingSub;
         SortField<?> orderField;
 
         var query = dsl.select(

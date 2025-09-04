@@ -15,13 +15,20 @@ public class PersonalLibraryService {
 
     public PageResponseDTO<PersonalLibraryBookDTO> getPersonalLibrary(
             int accountId,
+            String kw,
             int page,
             String sortBy,
             boolean desc,
             Boolean unreaded
     ) {
-        return personalLibraryRepository.getPersonalLibrary(accountId, page, pageSize, sortBy, desc, unreaded);
+        return personalLibraryRepository.getPersonalLibrary(accountId, kw, page, pageSize, sortBy, desc, unreaded);
+    }
+
+    public void addBookToLibrary(int accountId, int bookId) {
+        personalLibraryRepository.addBookToLibrary(accountId, bookId);
     }
     
-    
+    public boolean deleteBookFromLibrary(int accountId, int bookId) {
+        return personalLibraryRepository.removeBookFromLibrary(accountId, bookId);
+    }
 }

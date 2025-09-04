@@ -12,6 +12,9 @@ import static com.ddtt.jooq.generated.tables.Rating.RATING;
 import static com.ddtt.jooq.generated.tables.BookView.BOOK_VIEW;
 import static com.ddtt.jooq.generated.tables.ReadingProgress.READING_PROGRESS;
 import static com.ddtt.jooq.generated.tables.Chapter.CHAPTER;
+import static com.ddtt.jooq.generated.tables.Comment.COMMENT;
+import static com.ddtt.jooq.generated.tables.CommentLike.COMMENT_LIKE;
+import static com.ddtt.jooq.generated.tables.Book.BOOK;
 import java.time.OffsetDateTime;
 import java.time.ZoneOffset;
 import java.util.*;
@@ -270,7 +273,7 @@ public class Seeder {
         }
         return 5;
     }
-    
+
     // cho mỗi sách: tối thiểu và tối đa số user có progress
     private final int MIN_PROGRESS_PER_BOOK = 50;
     private final int MAX_PROGRESS_PER_BOOK = 20_000;
@@ -336,11 +339,15 @@ public class Seeder {
 
         // 4) build shuffledUsers array once
         int[] shuffledUsers = new int[NUM_USERS];
-        for (int i = 0; i < NUM_USERS; i++) shuffledUsers[i] = i + 1;
+        for (int i = 0; i < NUM_USERS; i++) {
+            shuffledUsers[i] = i + 1;
+        }
         // Fisher-Yates
         for (int i = NUM_USERS - 1; i > 0; i--) {
             int j = globalRnd.nextInt(i + 1);
-            int t = shuffledUsers[i]; shuffledUsers[i] = shuffledUsers[j]; shuffledUsers[j] = t;
+            int t = shuffledUsers[i];
+            shuffledUsers[i] = shuffledUsers[j];
+            shuffledUsers[j] = t;
         }
 
         // 5) precompute for each book how many chapters and bytes needed
@@ -359,7 +366,6 @@ public class Seeder {
             final int bId = bookId;
             final int target = bookTargets.get(bId);
             final int chaptersCount = bookChapterCounts.get(bId);
-            final int bytesNeeded = bookBytesNeeded.get(bId);
 
             executor.submit(() -> {
                 Random rnd = new Random();
@@ -371,7 +377,9 @@ public class Seeder {
                 // choose target consecutive users from shuffledUsers (wrap-around)
                 for (int k = 0; k < target; k++) {
                     int idx = start + k;
-                    if (idx >= NUM_USERS) idx -= NUM_USERS;
+                    if (idx >= NUM_USERS) {
+                        idx -= NUM_USERS;
+                    }
                     int accountId = shuffledUsers[idx];
 
                     // decide how many chapters this user has read for this book
@@ -387,26 +395,26 @@ public class Seeder {
 
                     // insert/upsert reading_progress — overwrite previous bitmap (if any)
                     queries.add(
-                        dsl.insertInto(READING_PROGRESS)
-                           .set(READING_PROGRESS.ACCOUNT_ID, accountId)
-                           .set(READING_PROGRESS.BOOK_ID, bId)
-                           .set(READING_PROGRESS.READ_CHAPTERS_BITMAP, bitmap)
-                           .set(READING_PROGRESS.LAST_UPDATED_AT, OffsetDateTime.now())
-                           .onConflict(READING_PROGRESS.ACCOUNT_ID, READING_PROGRESS.BOOK_ID)
-                           .doUpdate()
-                           .set(READING_PROGRESS.READ_CHAPTERS_BITMAP, bitmap)
-                           .set(READING_PROGRESS.LAST_UPDATED_AT, OffsetDateTime.now())
+                            dsl.insertInto(READING_PROGRESS)
+                                    .set(READING_PROGRESS.ACCOUNT_ID, accountId)
+                                    .set(READING_PROGRESS.BOOK_ID, bId)
+                                    .set(READING_PROGRESS.READ_CHAPTERS_BITMAP, bitmap)
+                                    .set(READING_PROGRESS.LAST_UPDATED_AT, OffsetDateTime.now())
+                                    .onConflict(READING_PROGRESS.ACCOUNT_ID, READING_PROGRESS.BOOK_ID)
+                                    .doUpdate()
+                                    .set(READING_PROGRESS.READ_CHAPTERS_BITMAP, bitmap)
+                                    .set(READING_PROGRESS.LAST_UPDATED_AT, OffsetDateTime.now())
                     );
 
                     // upsert book_view (set viewed_at to now)
                     queries.add(
-                        dsl.insertInto(BOOK_VIEW)
-                           .set(BOOK_VIEW.BOOK_ID, bId)
-                           .set(BOOK_VIEW.ACCOUNT_ID, accountId)
-                           .set(BOOK_VIEW.VIEWED_AT, OffsetDateTime.now())
-                           .onConflict(BOOK_VIEW.ACCOUNT_ID, BOOK_VIEW.BOOK_ID)
-                           .doUpdate()
-                           .set(BOOK_VIEW.VIEWED_AT, OffsetDateTime.now())
+                            dsl.insertInto(BOOK_VIEW)
+                                    .set(BOOK_VIEW.BOOK_ID, bId)
+                                    .set(BOOK_VIEW.ACCOUNT_ID, accountId)
+                                    .set(BOOK_VIEW.VIEWED_AT, OffsetDateTime.now())
+                                    .onConflict(BOOK_VIEW.ACCOUNT_ID, BOOK_VIEW.BOOK_ID)
+                                    .doUpdate()
+                                    .set(BOOK_VIEW.VIEWED_AT, OffsetDateTime.now())
                     );
 
                     // batch execute periodically
@@ -437,7 +445,10 @@ public class Seeder {
         // wait tasks finish
         executor.shutdown();
         while (!executor.isTerminated()) {
-            try { Thread.sleep(500); } catch (InterruptedException ignored) {}
+            try {
+                Thread.sleep(500);
+            } catch (InterruptedException ignored) {
+            }
         }
 
         // final stats
@@ -454,7 +465,9 @@ public class Seeder {
     private static int[] pickUniqueIndices(int n, int count, Random rnd) {
         if (count >= n) {
             int[] all = new int[n];
-            for (int i = 0; i < n; i++) all[i] = i + 1;
+            for (int i = 0; i < n; i++) {
+                all[i] = i + 1;
+            }
             return all;
         }
         // If count is small relative to n, use HashSet sampling
@@ -465,15 +478,21 @@ public class Seeder {
                 s.add(1 + rnd.nextInt(n));
             }
             int i = 0;
-            for (int v : s) result[i++] = v;
+            for (int v : s) {
+                result[i++] = v;
+            }
             return result;
         }
         // Otherwise shuffle array and take first `count`
         int[] pool = new int[n];
-        for (int i = 0; i < n; i++) pool[i] = i + 1;
+        for (int i = 0; i < n; i++) {
+            pool[i] = i + 1;
+        }
         for (int i = n - 1; i > 0; i--) {
             int j = rnd.nextInt(i + 1);
-            int tmp = pool[i]; pool[i] = pool[j]; pool[j] = tmp;
+            int tmp = pool[i];
+            pool[i] = pool[j];
+            pool[j] = tmp;
         }
         System.arraycopy(pool, 0, result, 0, count);
         return result;
@@ -492,5 +511,240 @@ public class Seeder {
             bitmap[byteIndex] |= (1 << bitInByte);
         }
         return bitmap;
+    }
+
+    @Get("/seeder-comment")
+    public void seedComments() {
+        int NUM_COMMENTS = 200_000; // tổng số comment muốn tạo
+        Random rnd = new Random();
+
+        // lấy tất cả bookId có chapter
+        List<Integer> bookIds = dsl.select(BOOK.BOOK_ID).from(BOOK).fetch(BOOK.BOOK_ID);
+        List<Integer> chapterIds = dsl.select(CHAPTER.CHAPTER_ID).from(CHAPTER).fetch(CHAPTER.CHAPTER_ID);
+        if (bookIds.isEmpty()) {
+            System.out.println("No books found. Aborting.");
+            return;
+        }
+
+        List<Query> queries = new ArrayList<>(BATCH_SIZE);
+        Map<Integer, Integer> parentCandidates = new HashMap<>(); // commentId -> depth
+        int currentId = 1;
+
+        for (int i = 0; i < NUM_COMMENTS; i++) {
+            int accountId = 1 + rnd.nextInt(NUM_USERS);
+            Integer chapterId = chapterIds.get(rnd.nextInt(chapterIds.size()));
+
+            Integer parentId = null;
+            int depth = 0;
+            String content;
+
+            // 30% là reply
+            if (!parentCandidates.isEmpty() && rnd.nextDouble() < 0.4) {
+                List<Integer> keys = new ArrayList<>(parentCandidates.keySet());
+                int candidate = keys.get(rnd.nextInt(keys.size()));
+                int parentDepth = parentCandidates.get(candidate);
+
+                if (parentDepth < 1) { // chỉ cho phép 1 cấp reply
+                    parentId = candidate;
+                    depth = 1;
+                }
+            }
+
+            // chọn nội dung phù hợp
+            if (depth == 0) {
+                content = generateRandomContent(rnd);
+            } else {
+                content = generateRandomReply(rnd);
+            }
+
+            queries.add(
+                    dsl.insertInto(COMMENT)
+                            .set(COMMENT.ACCOUNT_ID, accountId)
+                            .set(COMMENT.CHAPTER_ID, chapterId)
+                            .set(COMMENT.CONTENT, content)
+                            .set(COMMENT.CREATED_AT, OffsetDateTime.now().minusDays(rnd.nextInt(365*2)))
+                            .set(COMMENT.PARENT_COMMENT_ID, parentId)
+            );
+
+            // chỉ comment gốc mới có thể có reply
+            if (depth == 0) {
+                parentCandidates.put(currentId, depth);
+            }
+
+            currentId++;
+
+            if (queries.size() >= BATCH_SIZE) {
+                dsl.batch(queries).execute();
+                queries.clear();
+            }
+        }
+
+        if (!queries.isEmpty()) {
+            dsl.batch(queries).execute();
+        }
+
+        System.out.println("✅ Seeded " + NUM_COMMENTS + " comments");
+    }
+
+    @Get("/seeder-comment-like")
+    public void seedCommentLikes() {
+        int MAX_LIKES_PER_COMMENT = 50;
+        Random rnd = new Random();
+
+        List<Integer> commentIds = dsl.select(COMMENT.COMMENT_ID).from(COMMENT).fetch(COMMENT.COMMENT_ID);
+        if (commentIds.isEmpty()) {
+            System.out.println("No comments found. Aborting.");
+            return;
+        }
+
+        List<Query> queries = new ArrayList<>(BATCH_SIZE);
+
+        for (int commentId : commentIds) {
+            int likeCount = rnd.nextInt(MAX_LIKES_PER_COMMENT + 1);
+            for (int i = 0; i < likeCount; i++) {
+                int accountId = 1 + rnd.nextInt(NUM_USERS);
+                boolean isLike = rnd.nextDouble() < 0.85; // 85% like, 15% dislike
+
+                queries.add(
+                        dsl.insertInto(COMMENT_LIKE)
+                                .set(COMMENT_LIKE.ACCOUNT_ID, accountId)
+                                .set(COMMENT_LIKE.COMMENT_ID, commentId)
+                                .set(COMMENT_LIKE.IS_LIKE, isLike)
+                                .onConflictDoNothing()
+                );
+
+                if (queries.size() >= BATCH_SIZE) {
+                    dsl.batch(queries).execute();
+                    queries.clear();
+                }
+            }
+        }
+
+        if (!queries.isEmpty()) {
+            dsl.batch(queries).execute();
+        }
+
+        System.out.println("✅ Seeded likes for comments");
+    }
+
+    private String generateRandomContent(Random rnd) {
+        String[] opens = {
+            "Hay quá", "Cốt truyện hấp dẫn", "Đoạn này thật bất ngờ",
+            "Mình thích cách tác giả xây dựng nhân vật", "Văn phong mượt mà",
+            "Mình hơi thất vọng ở đoạn này", "Hài quá", "Cảm xúc trào dâng",
+            "Không ngờ lại rẽ hướng thế này", "Đọc cuốn hút từ đầu đến cuối",
+            "Nhân vật phụ gây ấn tượng mạnh", "Khung cảnh được miêu tả rất sống động"
+        };
+
+        String[] middles = {
+            "pacing tốt, đọc không chán", "mạch truyện tiến triển hợp lý",
+            "tình tiết hơi lê thê", "một nút thắt rất ổn", "cảnh đối thoại rất chân thực",
+            "phát triển nhân vật sâu sắc", "cần thêm chút cao trào ở giữa",
+            "cách giải quyết xung đột khéo léo", "không khí truyện thay đổi rõ rệt",
+            "sự xuất hiện của nhân vật mới làm câu chuyện hấp dẫn hơn",
+            "mạch cảm xúc được dẫn dắt tự nhiên"
+        };
+
+        String[] opinions = {
+            "mình vote 5 sao", "khá ưng ý", "cần chỉnh lại logic ở đoạn giữa",
+            "mong tác giả ra chương mới sớm", "đáng để theo dõi", "chưa thuyết phục lắm",
+            "nếu tiếp tục giữ phong độ thì sẽ rất thành công", "một trong những bộ mình thấy ổn nhất",
+            "dễ đồng cảm với nhân vật chính", "có tiềm năng trở thành tác phẩm nổi bật"
+        };
+
+        String[] questions = {
+            "Ai còn đọc không?", "Có ai thấy giống mình không?", "Tác giả khi nào ra chương mới?",
+            "Có bạn nào đoán được đoạn kết không?", "Liệu nhân vật chính có thắng được không?",
+            "Bạn nào thấy tình tiết này hợp lý chứ?", "Theo mọi người thì nhân vật phụ có trở lại không?",
+            "Có ai để ý chi tiết nhỏ ở đoạn trước không?"
+        };
+
+        StringBuilder sb = new StringBuilder();
+
+        int sentences = 1 + rnd.nextInt(3); // 1..3 câu
+        for (int s = 0; s < sentences; s++) {
+            double r = rnd.nextDouble();
+            String sentence;
+            if (r < 0.12) {
+                sentence = opens[rnd.nextInt(opens.length)] + ".";
+            } else if (r < 0.5) {
+                sentence = opens[rnd.nextInt(opens.length)] + " — " + middles[rnd.nextInt(middles.length)] + ".";
+            } else if (r < 0.75) {
+                sentence = middles[rnd.nextInt(middles.length)] + ", " + opinions[rnd.nextInt(opinions.length)] + ".";
+            } else {
+                if (rnd.nextDouble() < 0.6) {
+                    sentence = questions[rnd.nextInt(questions.length)];
+                } else {
+                    sentence = opens[rnd.nextInt(opens.length)] + ", " + opinions[rnd.nextInt(opinions.length)] + ".";
+                }
+            }
+
+            // Viết hoa chữ đầu
+            if (sentence.length() > 0) {
+                sentence = sentence.substring(0, 1).toUpperCase() + sentence.substring(1);
+            }
+
+            // Đảm bảo kết thúc bằng dấu câu
+            char last = sentence.charAt(sentence.length() - 1);
+            if (last != '.' && last != '?' && last != '!') {
+                sentence = sentence + ".";
+            }
+
+            sb.append(sentence);
+            if (s < sentences - 1) {
+                sb.append(" ");
+            }
+        }
+
+        return sb.toString();
+    }
+
+    private String generateRandomReply(Random rnd) {
+        String[] agrees = {
+            "Chuẩn luôn.", "Mình cũng nghĩ vậy.", "Đồng ý với bạn.",
+            "Thấy hợp lý.", "Công nhận.", "Chuẩn không cần chỉnh."
+        };
+
+        String[] disagrees = {
+            "Mình thì nghĩ khác.", "Chỗ đó chưa thuyết phục lắm.",
+            "Không đồng tình đâu.", "Theo mình thì hơi gượng ép.",
+            "Ý kiến trái ngược một chút.", "Mình thấy đoạn đó khá ổn mà."
+        };
+
+        String[] adds = {
+            "Bổ sung thêm: nhân vật phụ cũng rất thú vị.",
+            "Thêm một chi tiết nữa là bối cảnh được miêu tả kỹ.",
+            "Cũng nên để ý mạch truyện phụ.",
+            "Ngoài ra còn có nhiều ẩn ý nhỏ.",
+            "Mình còn thấy cách miêu tả tâm lý khá hay."
+        };
+
+        String[] questions = {
+            "Bạn nghĩ sao về đoạn kết?", "Theo bạn thì nhân vật chính sẽ ra sao?",
+            "Có ai cùng thắc mắc giống mình không?", "Bạn đoán khúc sau thế nào?",
+            "Có phải tác giả đang úp mở gì đó không?", "Bạn thấy nhân vật phụ kia quan trọng không?"
+        };
+
+        double r = rnd.nextDouble();
+        String reply;
+
+        if (r < 0.35) {
+            reply = agrees[rnd.nextInt(agrees.length)];
+        } else if (r < 0.6) {
+            reply = disagrees[rnd.nextInt(disagrees.length)];
+        } else if (r < 0.8) {
+            reply = adds[rnd.nextInt(adds.length)];
+        } else {
+            reply = questions[rnd.nextInt(questions.length)];
+        }
+
+        // Viết hoa chữ đầu
+        reply = reply.substring(0, 1).toUpperCase() + reply.substring(1);
+        if (!reply.endsWith(".") && !reply.endsWith("?") && !reply.endsWith("!")) {
+            reply += ".";
+        }
+
+        return reply;
+
     }
 }

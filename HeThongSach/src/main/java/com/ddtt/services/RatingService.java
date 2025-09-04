@@ -18,4 +18,8 @@ public class RatingService {
         ));
     }
 
+    public boolean deleteRating(int accountId, int bookId) {
+        return ratingRepository.deleteRating(accountId, bookId);
+    }
+
 }

@@ -12,12 +12,8 @@ import static com.ddtt.jooq.generated.tables.Chapter.CHAPTER;
 import static com.ddtt.jooq.generated.tables.PersonalLibrary.PERSONAL_LIBRARY;
 import static com.ddtt.jooq.generated.tables.ReadingProgress.READING_PROGRESS;
 import com.ddtt.repository.conditions.ChapterConditions;
-import jakarta.persistence.EntityExistsException;
 import jakarta.transaction.Transactional;
 import java.time.OffsetDateTime;
-import java.util.Collections;
-import java.util.List;
-import org.jooq.Condition;
 import org.jooq.Field;
 import org.jooq.SortField;
 import org.jooq.impl.DSL;
@@ -31,15 +27,17 @@ public class PersonalLibraryRepository {
 
     public PageResponseDTO<PersonalLibraryBookDTO> getPersonalLibrary(
             int accountId,
+            String kw, // Nếu null hoặc rỗng = lấy tất cả
             int page,
             int size,
             String sortBy,
             boolean desc,
-            Boolean unreaded // filter null (lấy hết), có (lấy unreaded), không (lấy đã đoc hết)
+            Boolean unreaded // null = tất cả, true = unread, false = read
     ) {
         int offset = (page - 1) * size;
+        String trimmed = kw != null ? kw.trim() : null;
 
-        // Subquery đếm tổng chương của mỗi book
+        // Subquery đếm tổng chương
         var chapterCount = dsl.select(
                 CHAPTER.BOOK_ID,
                 DSL.count().as("totalChapters")
@@ -49,18 +47,20 @@ public class PersonalLibraryRepository {
                 .groupBy(CHAPTER.BOOK_ID)
                 .asTable("chapterCount");
 
-        // field số chương đã đọc, tính từ bit_count()
         Field<Integer> readChaptersField = DSL.field(
-                "bit_count({0})", Integer.class,
-                READING_PROGRESS.READ_CHAPTERS_BITMAP
-        ).as("readChapters");
+                "bit_count({0})", Integer.class, READING_PROGRESS.READ_CHAPTERS_BITMAP
+        );
 
-        Field<Integer> totalChaptersField = DSL.coalesce(chapterCount.field("totalChapters", Integer.class), DSL.inline(0));
+        Field<Integer> totalChaptersField = DSL.coalesce(
+                chapterCount.field("totalChapters", Integer.class),
+                DSL.inline(0)
+        );
 
-        Field<Integer> unreadChaptersField = totalChaptersField
-                .minus(DSL.coalesce(readChaptersField, DSL.inline(0)))
-                .as("unreadChapters");
+        Field<Integer> unreadExpr = totalChaptersField
+                .minus(DSL.coalesce(readChaptersField, DSL.inline(0)));
 
+        Field<Integer> unreadChaptersField = unreadExpr.as("unreadChapters");
+        // Base query
         var base = dsl.select(
                 BOOK.BOOK_ID.as("bookId"),
                 BOOK.TITLE.as("title"),
@@ -73,21 +73,28 @@ public class PersonalLibraryRepository {
                 .from(PERSONAL_LIBRARY)
                 .join(BOOK).on(PERSONAL_LIBRARY.BOOK_ID.eq(BOOK.BOOK_ID))
                 .leftJoin(chapterCount).on(chapterCount.field(CHAPTER.BOOK_ID).eq(BOOK.BOOK_ID))
-                .leftJoin(READING_PROGRESS).on(READING_PROGRESS.ACCOUNT_ID.eq(PERSONAL_LIBRARY.ACCOUNT_ID)
-                .and(READING_PROGRESS.BOOK_ID.eq(BOOK.BOOK_ID)))
+                .leftJoin(READING_PROGRESS).on(
+                READING_PROGRESS.ACCOUNT_ID.eq(PERSONAL_LIBRARY.ACCOUNT_ID)
+                        .and(READING_PROGRESS.BOOK_ID.eq(BOOK.BOOK_ID))
+        )
                 .where(PERSONAL_LIBRARY.ACCOUNT_ID.eq(accountId));
 
-        // filter unreaded
-        if (Boolean.TRUE.equals(unreaded)) {
-            base = base.and(unreadChaptersField.gt(0));
-        } else if (Boolean.FALSE.equals(unreaded)) {
-            base = base.and(unreadChaptersField.eq(0));
+        // Search theo title nếu có keyword
+        if (trimmed != null && !trimmed.isEmpty()) {
+            base = base.and(BOOK.TITLE.likeIgnoreCase("%" + trimmed + "%"));
         }
 
-        SortField<?> sortField;
-        sortField = switch (sortBy != null ? sortBy : "title") {
+        // Filter unreaded
+        if (Boolean.TRUE.equals(unreaded)) {
+            base = base.and(unreadExpr.gt(0));
+        } else if (Boolean.FALSE.equals(unreaded)) {
+            base = base.and(unreadExpr.eq(0));
+        }
+
+        // Sort
+        SortField<?> sortField = switch (sortBy != null ? sortBy : "title") {
             case "unreadChapters" ->
-                desc ? unreadChaptersField.desc() : unreadChaptersField.asc();
+                desc ? unreadExpr.desc() : unreadExpr.asc();
             case "totalChapters" ->
                 desc ? totalChaptersField.desc() : totalChaptersField.asc();
             case "lastReadAt" ->
@@ -112,20 +119,10 @@ public class PersonalLibraryRepository {
                 record.get("lastReadAt", OffsetDateTime.class)
         ));
 
-        Long total = null;
-        Integer totalPages = null;
-        if (page == 1) {
-            total = (long) dsl.fetchCount(base);
-            totalPages = (int) Math.ceil((double) total / size);
-        }
+        long total = (long) dsl.fetchCount(base);
+        int totalPages = (int) Math.ceil((double) total / size);
 
-        return new PageResponseDTO<>(
-                total,
-                page,
-                size,
-                totalPages,
-                items
-        );
+        return new PageResponseDTO<>(total, page, size, totalPages, items);
     }
 
     @Transactional
@@ -148,39 +145,12 @@ public class PersonalLibraryRepository {
                 .execute();
     }
 
-//    public List<PersonalLibraryBookDTO> searchLibraryBooks(int accountId, String keyword) {
-//        if (keyword == null || keyword.isBlank()) {
-//            return Collections.emptyList();
-//        }
-//
-//        String kw = keyword.trim().toLowerCase();
-//
-//        Condition prefixMatch = DSL.lower(BOOK.TITLE).likeIgnoreCase(kw + "%");
-//        Condition containsMatch = DSL.lower(BOOK.TITLE).likeIgnoreCase("%" + kw + "%");
-//
-//        return dsl.select(
-//                BOOK.BOOK_ID,
-//                BOOK.TITLE,
-//                BOOK.COVER_IMAGE_URL,
-//                BOOK.TOTAL_CHAPTERS,
-//                BOOK.TOTAL_CHAPTERS.minus(DSL.coalesce(READ_PROGRESS.LAST_READ_CHAPTER, 0)).as("unreadChapters"),
-//                PERSONAL_LIBRARY.FOLLOWED_AT.as("addedAt"),
-//                READ_PROGRESS.LAST_READ_AT.as("lastReadAt")
-//        )
-//                .from(PERSONAL_LIBRARY)
-//                .join(BOOK).on(BOOK.BOOK_ID.eq(PERSONAL_LIBRARY.BOOK_ID))
-//                // giả sử có bảng read_progress(account_id, book_id, last_read_chapter, last_read_at)
-//                .leftJoin(READ_PROGRESS).on(
-//                READ_PROGRESS.ACCOUNT_ID.eq(PERSONAL_LIBRARY.ACCOUNT_ID)
-//                        .and(READ_PROGRESS.BOOK_ID.eq(PERSONAL_LIBRARY.BOOK_ID))
-//        )
-//                .where(PERSONAL_LIBRARY.ACCOUNT_ID.eq(accountId))
-//                .and(prefixMatch.or(containsMatch))
-//                .orderBy(
-//                        DSL.when(prefixMatch, 0).otherwise(1), // ưu tiên prefix match
-//                        BOOK.TITLE.asc()
-//                )
-//                .fetchInto(PersonalLibraryBookDTO.class);
-//    }
+    public boolean removeBookFromLibrary(int accountId, int bookId) {
+        int affectedRows = dsl.deleteFrom(PERSONAL_LIBRARY)
+                .where(PERSONAL_LIBRARY.ACCOUNT_ID.eq(accountId))
+                .and(PERSONAL_LIBRARY.BOOK_ID.eq(bookId))
+                .execute();
+        return affectedRows > 0;
+    }
 
 }

@@ -45,4 +45,13 @@ public class RatingRepository {
 
         return Optional.ofNullable(result);
     }
+    
+    public boolean deleteRating(int accountId, int bookId) {
+        int affectedRows = dsl.deleteFrom(RATING)
+                .where(RATING.ACCOUNT_ID.eq(accountId)
+                        .and(RATING.BOOK_ID.eq(bookId)))
+                .execute();
+
+        return affectedRows > 0;
+    }
 }

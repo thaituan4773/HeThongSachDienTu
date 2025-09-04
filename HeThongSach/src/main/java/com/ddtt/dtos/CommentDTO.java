@@ -12,8 +12,8 @@ public class CommentDTO {
     String displayName;
     String avatarUrl;
     String content;
-    int likesCount;
+    int score;
     OffsetDateTime createdAt;
     int replyCount;
-    Boolean likedByCurrentUser; // true = like, false = dislike, null = chưa tương tá
+    Boolean likedByCurrentUser; // true = like, false = dislike, null = chưa tương tác
 }

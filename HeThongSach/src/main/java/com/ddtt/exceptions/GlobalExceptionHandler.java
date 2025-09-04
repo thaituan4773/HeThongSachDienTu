@@ -38,9 +38,19 @@ public class GlobalExceptionHandler implements ExceptionHandler<Exception, HttpR
         if (ex instanceof NotFoundException) {
             return HttpResponse.status(HttpStatus.NOT_FOUND).body(Map.of("error", ex.getMessage()));
         }
+        if (ex instanceof java.security.InvalidKeyException) {
+            return HttpResponse.serverError().body(Map.of("error", "Lỗi key không hợp lệ: " + ex.getMessage()));
+        }
+        if (ex instanceof java.security.NoSuchAlgorithmException) {
+            return HttpResponse.serverError().body(Map.of("error", "Thuật toán ký không được hỗ trợ: " + ex.getMessage()));
+        }
+        if (ex instanceof java.io.IOException) {
+            return HttpResponse.serverError().body(Map.of("error", "Lỗi IO: " + ex.getMessage()));
+        }
         if (ex instanceof RuntimeException) {
             return HttpResponse.badRequest().body(Map.of("error", ex.getMessage()));
         }
         return HttpResponse.serverError().body(Map.of("error", "Internal server error: " + ex.getMessage()));
     }
+
 }

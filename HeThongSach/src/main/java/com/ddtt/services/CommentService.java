@@ -30,4 +30,24 @@ public class CommentService {
     ) {
         return commentRepository.getRepliesByComment(commentId, page, pageSize, currentAccountId);
     }
+
+    public boolean likeOrDislikeComment(int commentId, int accountId, boolean isLike) {
+        return commentRepository.likeOrDislikeComment(commentId, accountId, isLike);
+    }
+
+    public boolean deleteLikeOrDislike(int commentId, int accountId) {
+        return commentRepository.deleteLikeOrDislike(commentId, accountId);
+    }
+    
+    public CommentDTO addComment(int chapterId, int accountId, String content) {
+        return commentRepository.addComment(chapterId, accountId, content);
+    }
+    
+    public ReplyDTO addReply(int parentCommentId, int accountId, String content){
+        return commentRepository.addReply(parentCommentId, accountId, content);
+    }
+    
+    public boolean deleteComment(int commentId, int accountId) {
+        return commentRepository.deleteComment(commentId, accountId);
+    }
 }
