@@ -23,6 +23,9 @@ public class GlobalExceptionHandler implements ExceptionHandler<Exception, HttpR
         if (ex instanceof DuplicateException) {
             return HttpResponse.status(HttpStatus.UNPROCESSABLE_ENTITY).body(Map.of("error", ex.getMessage()));
         }
+        if (ex instanceof PaymentRequiredException) {
+            return HttpResponse.status(HttpStatus.PAYMENT_REQUIRED).body(Map.of("error", ex.getMessage()));
+        }
         if (ex instanceof ParseException) {
             return HttpResponse.badRequest().body(Map.of("error", "Token không phải định dạng JWT hợp lệ"));
         }

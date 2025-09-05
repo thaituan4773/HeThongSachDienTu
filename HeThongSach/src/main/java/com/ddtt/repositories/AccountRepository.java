@@ -1,15 +1,20 @@
 package com.ddtt.repositories;
 
 import com.ddtt.dtos.AccountDTO;
+import com.ddtt.dtos.BookDTO;
 import com.ddtt.dtos.RegisterInfoDTO;
 import io.micronaut.core.annotation.Blocking;
 import jakarta.inject.Singleton;
 import org.jooq.DSLContext;
 import static com.ddtt.jooq.generated.tables.Account.ACCOUNT;
+import static com.ddtt.jooq.generated.tables.Book.BOOK;
 import com.ddtt.jooq.generated.tables.records.AccountRecord;
+import com.ddtt.repository.conditions.BookConditions;
 import jakarta.transaction.Transactional;
+import java.util.List;
 import lombok.RequiredArgsConstructor;
 import org.jooq.Record1;
+import org.jooq.impl.DSL;
 
 @Singleton
 @Blocking
@@ -81,19 +86,44 @@ public class AccountRepository {
         }
         return record.value1();
     }
-    
-    public AccountDTO getAccountById(int accountId){
-        return dsl.select(
+
+    public AccountDTO getProfile(int accountId, int limit) {
+        AccountDTO acc = dsl.select(
                 ACCOUNT.ACCOUNT_ID.as("accountId"),
                 ACCOUNT.DISPLAY_NAME.as("displayName"),
-                ACCOUNT.EMAIL.as("email"),
+                ACCOUNT.BIO.as("bio"),
                 ACCOUNT.AVATAR_URL.as("avatarURL"),
-                ACCOUNT.BALANCE.as("balance")
+                ACCOUNT.BALANCE.as("balance"),
+                DSL.field(
+                        DSL.selectCount()
+                                .from(BOOK)
+                                .where(BOOK.AUTHOR_ACCOUNT_ID.eq(ACCOUNT.ACCOUNT_ID))
+                                .and(BookConditions.discoverableStatus())
+                ).as("booksTotal")
         )
                 .from(ACCOUNT)
                 .where(ACCOUNT.ACCOUNT_ID.eq(accountId))
                 .and(ACCOUNT.DELETED_AT.isNull())
                 .fetchOneInto(AccountDTO.class);
+
+        if (acc == null) {
+            throw new IllegalStateException("Không tìm thấy tài khoản");
+        }
+
+        List<BookDTO> books = dsl.select(
+                BOOK.BOOK_ID.as("bookId"),
+                BOOK.TITLE,
+                BOOK.COVER_IMAGE_URL.as("coverImageURL")
+        )
+                .from(BOOK)
+                .where(BOOK.AUTHOR_ACCOUNT_ID.eq(accountId))
+                .and(BookConditions.discoverableStatus())
+                .orderBy(BOOK.CREATED_AT.desc())
+                .limit(limit)
+                .fetchInto(BookDTO.class);
+
+        acc.setBooks(books);
+        return acc;
     }
 
 }

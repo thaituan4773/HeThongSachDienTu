@@ -65,13 +65,4 @@ public class ApiBook {
     ) {
         return HttpResponse.ok(bookService.findBooksByGenrePaged(genreId, page, sort));
     }
-
-    @Get("/authors/{authorId}")
-    public HttpResponse<PageResponseDTO<BookSummaryDTO>> getBookByAuthor(
-            @PathVariable int authorId,
-            @QueryValue(value = "page", defaultValue = "1") @Min(value = 1, message = "page phải >= 1") int page
-    ) {
-        return HttpResponse.ok(bookService.findBooksByAuthorPaged(authorId, page, false));
-    }
-
 }

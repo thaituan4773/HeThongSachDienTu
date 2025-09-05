@@ -1,14 +1,17 @@
 package com.ddtt.controllers;
 
+import com.ddtt.dtos.AccountDTO;
 import com.ddtt.dtos.BookCreateDTO;
 import com.ddtt.dtos.BookSummaryDTO;
 import com.ddtt.dtos.PageResponseDTO;
+import com.ddtt.services.AccountService;
 import com.ddtt.services.BookService;
 import io.micronaut.core.annotation.Nullable;
 import io.micronaut.http.HttpResponse;
 import io.micronaut.http.annotation.Controller;
 import io.micronaut.http.annotation.Get;
 import io.micronaut.http.annotation.Part;
+import io.micronaut.http.annotation.PathVariable;
 import io.micronaut.http.annotation.Post;
 import io.micronaut.http.annotation.QueryValue;
 import io.micronaut.http.multipart.CompletedFileUpload;
@@ -23,6 +26,7 @@ import lombok.RequiredArgsConstructor;
 public class ApiAuthor {
 
     private final BookService bookService;
+    private final AccountService accountService;
 
     @Get("/me/books")
     public HttpResponse<PageResponseDTO<BookSummaryDTO>> getMyBooks(
@@ -49,6 +53,17 @@ public class ApiAuthor {
         book.setGenreId(genreId);
         book.setTagIds(tagIds);
         return HttpResponse.ok(bookService.createBook(book, accountId, file));
+    }
+
+    @Get("/users/{accountId}")
+    public HttpResponse<AccountDTO> getProfile(@PathVariable int accountId) {
+        return HttpResponse.ok(accountService.getAccountById(accountId));
+    }
+    
+    @Get("/me")
+    public HttpResponse<AccountDTO> getMyProfile(Authentication authentication) {
+        int accountId = (Integer) authentication.getAttributes().get("accountId");
+        return HttpResponse.ok(accountService.getAccountById(accountId));
     }
 
 }

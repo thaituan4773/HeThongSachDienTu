@@ -13,6 +13,12 @@ micronaut:
       - pattern: /api/payments/*/ipn
         access:
           - isAnonymous()
+      - pattern: /api/payments/result
+        access:
+          - isAnonymous()
+      - pattern: /api/verify
+        access:
+          - isAnonymous()
       - pattern: /api/refresh
         access:
           - isAnonymous()

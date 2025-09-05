@@ -107,7 +107,8 @@ public class AccountService {
     }
 
     public AccountDTO getAccountById(int accountId) {
-        return accountRepo.getAccountById(accountId);
+        int limit = 6;
+        return accountRepo.getProfile(accountId, limit);
     }
 
 }

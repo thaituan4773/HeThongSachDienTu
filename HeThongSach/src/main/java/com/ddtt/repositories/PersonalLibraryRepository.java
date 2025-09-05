@@ -16,6 +16,7 @@ import jakarta.transaction.Transactional;
 import java.time.OffsetDateTime;
 import org.jooq.Field;
 import org.jooq.SortField;
+import org.jooq.exception.DataAccessException;
 import org.jooq.impl.DSL;
 
 @Singleton
@@ -127,22 +128,19 @@ public class PersonalLibraryRepository {
 
     @Transactional
     public void addBookToLibrary(int accountId, int bookId) {
-        boolean exists = dsl.fetchExists(
-                dsl.selectOne()
-                        .from(PERSONAL_LIBRARY)
-                        .where(PERSONAL_LIBRARY.ACCOUNT_ID.eq(accountId))
-                        .and(PERSONAL_LIBRARY.BOOK_ID.eq(bookId))
-        );
-
-        if (exists) {
-            throw new DuplicateException(accountId, bookId);
-        }
         // Insert mới
-        dsl.insertInto(PERSONAL_LIBRARY)
-                .set(PERSONAL_LIBRARY.ACCOUNT_ID, accountId)
-                .set(PERSONAL_LIBRARY.BOOK_ID, bookId)
-                .set(PERSONAL_LIBRARY.FOLLOWED_AT, OffsetDateTime.now())
-                .execute();
+        try {
+            dsl.insertInto(PERSONAL_LIBRARY)
+                    .set(PERSONAL_LIBRARY.ACCOUNT_ID, accountId)
+                    .set(PERSONAL_LIBRARY.BOOK_ID, bookId)
+                    .set(PERSONAL_LIBRARY.FOLLOWED_AT, OffsetDateTime.now())
+                    .execute();
+        } catch (DataAccessException e) {
+            if(DuplicateException.isDuplicate(e)){
+                throw new DuplicateException("Sách " + bookId + " đã tồn tại trong account " + accountId);
+            }
+            throw e;
+        }
     }
 
     public boolean removeBookFromLibrary(int accountId, int bookId) {

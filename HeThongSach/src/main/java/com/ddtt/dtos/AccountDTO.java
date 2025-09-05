@@ -1,14 +1,17 @@
 package com.ddtt.dtos;
 
 import io.micronaut.serde.annotation.Serdeable;
-import lombok.Value;
+import java.util.List;
+import lombok.Data;
 
-@Value
+@Data
 @Serdeable
 public class AccountDTO {
     int accountId;
     String displayName;
-    String email;
+    String bio;
     String avatarURL;
     int balance;
+    List<BookDTO> books; // chỉ fetch một vài
+    int booksTotal;
 }

@@ -22,14 +22,12 @@ public class EmailRepository {
     private final DSLContext dsl;
     private final long cooldownSeconds = 300;
     private final EmailSender<?, ?> emailSender;
-    private final String appSchemeBase = "exp+HeThongSach-App://verify?token=";
-    private final String webFallbackBase = "http://10.0.2.2:8080/api/verify?token=";
+    private final String appSchemeBase = "https://uncommon-gazelle-regularly.ngrok-free.app/api/verify?token=";
     private final JwtUtils jwtUtils;
 
     public void sendVerificationEmail(String to, String token) {
         String appLink = appSchemeBase + URLEncoder.encode(token, StandardCharsets.UTF_8);
-        String webLink = webFallbackBase + URLEncoder.encode(token, StandardCharsets.UTF_8);
-        String body = "Mở app để xác thực email: " + appLink + "\n\nNếu không mở được app, hãy dùng trình duyệt: " + webLink;
+        String body = "Mở app để xác thực email: " + appLink;
 
         emailSender.send(Email.builder()
                 .from("sender@example.com")

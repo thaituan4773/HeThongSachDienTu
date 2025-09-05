@@ -1,6 +1,5 @@
 package com.ddtt.controllers;
 
-import com.ddtt.dtos.AccountDTO;
 import com.ddtt.dtos.LoginRequestDTO;
 import com.ddtt.dtos.RegisterInfoDTO;
 import com.ddtt.services.AccountService;
@@ -9,11 +8,9 @@ import io.micronaut.core.annotation.Nullable;
 import io.micronaut.http.HttpResponse;
 import io.micronaut.http.annotation.Body;
 import io.micronaut.http.annotation.Controller;
-import io.micronaut.http.annotation.Get;
 import io.micronaut.http.annotation.Part;
 import io.micronaut.http.annotation.Post;
 import io.micronaut.http.multipart.CompletedFileUpload;
-import io.micronaut.security.authentication.Authentication;
 import jakarta.validation.Valid;
 import java.util.Map;
 import lombok.RequiredArgsConstructor;
@@ -38,7 +35,7 @@ public class ApiAuth {
         dto.setPassword(password);
 
         accountService.addAccount(dto, avatar);
-//        emailService.sendEmail(email);
+        emailService.sendEmail(email);
 
         return HttpResponse.created("Account registered successfully");
     }
@@ -63,10 +60,5 @@ public class ApiAuth {
         }
         return HttpResponse.ok(accountService.refreshToken(refreshToken));
 
-    }
-
-    @Get("/me")
-    public HttpResponse<AccountDTO> getProfile(Authentication authentication) {
-        return HttpResponse.ok(accountService.getAccountById((Integer) authentication.getAttributes().get("accountId")));
     }
 }

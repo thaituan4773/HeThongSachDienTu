@@ -3,7 +3,6 @@ package com.ddtt.services;
 import com.ddtt.dtos.CoinPackDTO;
 import com.ddtt.dtos.PurchaseCoinsDTO;
 import com.ddtt.exceptions.NotFoundException;
-import com.ddtt.repositories.CoinPackRepository;
 import com.ddtt.repositories.PurchaseCoinsRepository;
 import jakarta.inject.Singleton;
 import java.io.IOException;
@@ -19,12 +18,12 @@ import org.reactivestreams.Publisher;
 public class PurchaseCoinsService {
 
     private final PurchaseCoinsRepository purchaseCoinsRepository;
-    private final CoinPackRepository coinPackRepository;
+    private final CoinPackService coinPackService;
     private final MOMOService momoService;
 
     public Publisher<Map<String, Object>> createTransaction(int accountId, int coinPackId, String paymentMethod)
             throws IOException, NoSuchAlgorithmException, InvalidKeyException {
-        CoinPackDTO coinPack = coinPackRepository.getCoinPackInfo(coinPackId);
+        CoinPackDTO coinPack = coinPackService.getCoinPackInfo(coinPackId);
         UUID transactionId = purchaseCoinsRepository.createPurchase(accountId, coinPackId, "MOMO");
         return momoService.createPaymentUrl(transactionId, accountId, coinPack.getCoinAmount(), coinPack.getPrice(), coinPack.getCoinPackName());
     }
@@ -43,26 +42,26 @@ public class PurchaseCoinsService {
             throw new IllegalStateException("Chữ ký momo không hợp lệ");
         }
         
-        UUID orderId = UUID.fromString(String.valueOf(payload.get("orderId")));
-        PurchaseCoinsDTO transaction = purchaseCoinsRepository.findByTransactionId(orderId);
+        UUID transactionId = UUID.fromString(String.valueOf(payload.get("orderId")));
+        PurchaseCoinsDTO transaction = purchaseCoinsRepository.findByTransactionId(transactionId);
         if (transaction == null) {
-            throw new IllegalStateException("Không tìm thấy giao dịch: " + orderId);
+            throw new IllegalStateException("Không tìm thấy giao dịch: " + transactionId);
         }
 
         // Kiểm tra số tiền
         long amountFromMoMo = ((Number) payload.get("amount")).longValue();
         long amountFromDb = transaction.getMoneyAmount();
         if (amountFromDb != amountFromMoMo) {
-            throw new IllegalStateException("Thông tin giao dịch không hợp lệ: " + orderId);
+            throw new IllegalStateException("Thông tin giao dịch không hợp lệ: " + transactionId);
         }
         
         int resultCode = ((Number) payload.get("resultCode")).intValue();
         String newStatus = (resultCode == 0) ? "SUCCESS" : "FAILED";
-        purchaseCoinsRepository.updateStatus(orderId, newStatus);
+        purchaseCoinsRepository.updateStatus(transactionId, newStatus);
         return true;
     }
 
-    public String getTransactionStatus(int accountId, UUID transactionId) {
+    public String getTransactionStatus(UUID transactionId) {
         var purchase = purchaseCoinsRepository.findByTransactionId(transactionId);
         if (purchase == null) {
             throw new NotFoundException("Không tìm thấy giao dịch");

@@ -4,20 +4,26 @@ import com.ddtt.dtos.ChapterContentDTO;
 import com.ddtt.dtos.ChapterCreateDTO;
 import com.ddtt.dtos.ChapterOverviewDTO;
 import com.ddtt.dtos.PageResponseDTO;
-import static com.ddtt.jooq.generated.tables.BookView.BOOK_VIEW;
-import static com.ddtt.jooq.generated.tables.Chapter.CHAPTER;
+import com.ddtt.exceptions.DuplicateException;
+import com.ddtt.exceptions.NotFoundException;
+import com.ddtt.exceptions.PaymentRequiredException;
 import jakarta.inject.Singleton;
 import lombok.RequiredArgsConstructor;
 import org.jooq.DSLContext;
 import static com.ddtt.jooq.generated.tables.ChapterPurchase.CHAPTER_PURCHASE;
 import static com.ddtt.jooq.generated.tables.Comment.COMMENT;
 import static com.ddtt.jooq.generated.tables.ReadingProgress.READING_PROGRESS;
+import static com.ddtt.jooq.generated.tables.BookView.BOOK_VIEW;
+import static com.ddtt.jooq.generated.tables.Chapter.CHAPTER;
+import static com.ddtt.jooq.generated.tables.Account.ACCOUNT;
 import com.ddtt.repository.conditions.ChapterConditions;
 import io.micronaut.core.annotation.Blocking;
+import jakarta.transaction.Transactional;
 import java.time.OffsetDateTime;
 import java.util.List;
 import org.jooq.Condition;
 import org.jooq.Field;
+import org.jooq.exception.DataAccessException;
 import org.jooq.impl.DSL;
 
 @Singleton
@@ -123,7 +129,7 @@ public class ChapterRepository {
     }
 
     private void recordProgress(int chapterId, int accountId) {
-        
+
         var chapter = dsl.select(CHAPTER.BOOK_ID, CHAPTER.POSITION)
                 .from(CHAPTER)
                 .where(CHAPTER.CHAPTER_ID.eq(chapterId))
@@ -216,6 +222,44 @@ public class ChapterRepository {
         }
 
         return new PageResponseDTO<>(total, page, size, totalPages, items);
+    }
+
+    @Transactional
+    public void unlockChapter(int accountId, int chapterId) {
+        // Lấy giá chapter
+        Integer price = dsl.select(CHAPTER.COIN_PRICE)
+                .from(CHAPTER)
+                .where(CHAPTER.CHAPTER_ID.eq(chapterId))
+                .fetchOneInto(Integer.class);
+
+        if (price == null) {
+            throw new NotFoundException("Không tìm thấy chương");
+        }
+
+        // Trừ tiền
+        int updated = dsl.update(ACCOUNT)
+                .set(ACCOUNT.BALANCE, ACCOUNT.BALANCE.minus(price))
+                .where(ACCOUNT.ACCOUNT_ID.eq(accountId))
+                .and(ACCOUNT.BALANCE.ge(price))
+                .execute();
+
+        if (updated == 0) {
+            throw new PaymentRequiredException("Số dư không đủ");
+        }
+
+        try {
+            // Ghi purchase
+            dsl.insertInto(CHAPTER_PURCHASE)
+                    .set(CHAPTER_PURCHASE.ACCOUNT_ID, accountId)
+                    .set(CHAPTER_PURCHASE.CHAPTER_ID, chapterId)
+                    .set(CHAPTER_PURCHASE.COIN_PRICE, price)
+                    .execute();
+        } catch (DataAccessException e) {
+            if (DuplicateException.isDuplicate(e)) {
+                throw new DuplicateException("Chương đã được mở khóa");
+            }
+            throw e;
+        }
     }
 
 }

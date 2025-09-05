@@ -562,7 +562,7 @@ public class Seeder {
                             .set(COMMENT.ACCOUNT_ID, accountId)
                             .set(COMMENT.CHAPTER_ID, chapterId)
                             .set(COMMENT.CONTENT, content)
-                            .set(COMMENT.CREATED_AT, OffsetDateTime.now().minusDays(rnd.nextInt(365*2)))
+                            .set(COMMENT.CREATED_AT, OffsetDateTime.now().minusDays(rnd.nextInt(365 * 2)))
                             .set(COMMENT.PARENT_COMMENT_ID, parentId)
             );
 
@@ -746,5 +746,46 @@ public class Seeder {
 
         return reply;
 
+    }
+
+    @Get("/seeder-chapter-price")
+    public void seedChapterPrices() {
+        Random rnd = new Random();
+
+        // Lấy tất cả book_id
+        List<Integer> bookIds = dsl.select(BOOK.BOOK_ID)
+                .from(BOOK)
+                .fetchInto(Integer.class);
+
+        for (Integer bookId : bookIds) {
+            // Lấy 4 chương mới nhất theo created_at (hoặc position)
+            List<Integer> chapterIds = dsl.select(CHAPTER.CHAPTER_ID)
+                    .from(CHAPTER)
+                    .where(CHAPTER.BOOK_ID.eq(bookId))
+                    .orderBy(CHAPTER.CREATED_AT.desc())
+                    .limit(4)
+                    .fetchInto(Integer.class);
+
+            for (Integer chapterId : chapterIds) {
+                int price;
+
+                // 80% = 5 xu, 15% = 10 xu, 5% = 20 xu
+                double p = rnd.nextDouble();
+                if (p < 0.8) {
+                    price = 5;
+                } else if (p < 0.95) {
+                    price = 10;
+                } else {
+                    price = 20;
+                }
+
+                dsl.update(CHAPTER)
+                        .set(CHAPTER.COIN_PRICE, price)
+                        .where(CHAPTER.CHAPTER_ID.eq(chapterId))
+                        .execute();
+            }
+        }
+
+        System.out.println("Updated chapter prices for latest 4 chapters of each book");
     }
 }
