@@ -23,7 +23,7 @@ import lombok.RequiredArgsConstructor;
 
 @Controller("/api")
 @RequiredArgsConstructor
-public class ApiAuthor {
+public class ApiAccount {
 
     private final BookService bookService;
     private final AccountService accountService;
@@ -59,11 +59,17 @@ public class ApiAuthor {
     public HttpResponse<AccountDTO> getProfile(@PathVariable int accountId) {
         return HttpResponse.ok(accountService.getAccountById(accountId));
     }
-    
+
     @Get("/me")
     public HttpResponse<AccountDTO> getMyProfile(Authentication authentication) {
         int accountId = (Integer) authentication.getAttributes().get("accountId");
         return HttpResponse.ok(accountService.getAccountById(accountId));
+    }
+
+    @Get("/me/balance")
+    public HttpResponse<Integer> getBalance(Authentication authentication) {
+        int accountId = (Integer) authentication.getAttributes().get("accountId");
+        return HttpResponse.ok(accountService.getBalance(accountId));
     }
 
 }

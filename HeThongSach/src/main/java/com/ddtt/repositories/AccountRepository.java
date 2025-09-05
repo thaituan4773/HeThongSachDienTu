@@ -126,4 +126,11 @@ public class AccountRepository {
         return acc;
     }
 
+    public int getBalance(int accountId) {
+        return dsl.select(ACCOUNT.BALANCE)
+                .from(ACCOUNT)
+                .where(ACCOUNT.ACCOUNT_ID.eq(accountId))
+                .fetchOneInto(Integer.class);
+    }
+
 }

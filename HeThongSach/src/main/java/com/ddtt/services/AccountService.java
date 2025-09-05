@@ -111,4 +111,8 @@ public class AccountService {
         return accountRepo.getProfile(accountId, limit);
     }
 
+    public int getBalance(int accountId) {
+        return accountRepo.getBalance(accountId);
+    }
+
 }
