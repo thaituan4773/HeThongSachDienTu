@@ -1,7 +1,9 @@
 package com.ddtt.services;
 
 import com.ddtt.dtos.ChapterContentDTO;
+import com.ddtt.dtos.ChapterInputDTO;
 import com.ddtt.dtos.ChapterOverviewDTO;
+import com.ddtt.dtos.ChapterUpdateDTO;
 import com.ddtt.dtos.PageResponseDTO;
 import com.ddtt.exceptions.ForbiddenException;
 import com.ddtt.repositories.ChapterRepository;
@@ -40,5 +42,13 @@ public class ChapterService {
 
     public boolean checkAccess(int chapterId, int accountId) {
         return chapterRepository.hasChapterAccess(chapterId, accountId);
+    }
+    
+    public ChapterInputDTO addChapter(int accountId, int bookId, ChapterInputDTO dto){
+        return chapterRepository.addChapter(accountId, bookId, dto);
+    }
+    
+    public ChapterUpdateDTO updateChapter(int accountId, int chapterId, ChapterUpdateDTO dto) {
+        return chapterRepository.updateChapter(accountId, chapterId, dto);
     }
 }

@@ -1,8 +1,9 @@
 package com.ddtt.repositories;
 
 import com.ddtt.dtos.ChapterContentDTO;
-import com.ddtt.dtos.ChapterCreateDTO;
+import com.ddtt.dtos.ChapterInputDTO;
 import com.ddtt.dtos.ChapterOverviewDTO;
+import com.ddtt.dtos.ChapterUpdateDTO;
 import com.ddtt.dtos.PageResponseDTO;
 import com.ddtt.exceptions.DuplicateException;
 import com.ddtt.exceptions.NotFoundException;
@@ -16,6 +17,7 @@ import static com.ddtt.jooq.generated.tables.ReadingProgress.READING_PROGRESS;
 import static com.ddtt.jooq.generated.tables.BookView.BOOK_VIEW;
 import static com.ddtt.jooq.generated.tables.Chapter.CHAPTER;
 import static com.ddtt.jooq.generated.tables.Account.ACCOUNT;
+import static com.ddtt.jooq.generated.tables.Book.BOOK;
 import com.ddtt.repository.conditions.ChapterConditions;
 import io.micronaut.core.annotation.Blocking;
 import jakarta.transaction.Transactional;
@@ -23,6 +25,7 @@ import java.time.OffsetDateTime;
 import java.util.List;
 import org.jooq.Condition;
 import org.jooq.Field;
+import org.jooq.UpdateQuery;
 import org.jooq.exception.DataAccessException;
 import org.jooq.impl.DSL;
 
@@ -36,6 +39,15 @@ public class ChapterRepository {
     private Field<Boolean> hasUnlockedField(int accountId) {
         return DSL.case_()
                 .when(CHAPTER.COIN_PRICE.eq(0), DSL.inline(true))
+                .when(
+                        DSL.exists(
+                                DSL.selectOne()
+                                        .from(BOOK)
+                                        .where(BOOK.BOOK_ID.eq(CHAPTER.BOOK_ID))
+                                        .and(BOOK.AUTHOR_ACCOUNT_ID.eq(accountId))
+                        ),
+                        DSL.inline(true)
+                )
                 .when(
                         DSL.exists(
                                 DSL.selectOne()
@@ -93,9 +105,29 @@ public class ChapterRepository {
         return dto;
     }
 
-    public int addChapter(ChapterCreateDTO dto) {
-        String status = dto.getStatus() != null ? dto.getStatus() : "PUBLISHED";
+    @Transactional
+    public ChapterInputDTO addChapter(int accountId, int bookId, ChapterInputDTO dto) {
+        boolean bookExists = dsl.fetchExists(
+                DSL.selectOne()
+                        .from(BOOK)
+                        .where(BOOK.BOOK_ID.eq(bookId))
+                        .and(BOOK.AUTHOR_ACCOUNT_ID.eq(accountId))
+                        .and(BOOK.DELETED_AT.isNull())
+        );
+
+        if (!bookExists) {
+            throw new IllegalArgumentException("Sách không tồn tại hoặc không thuộc về tác giả");
+        }
+
         OffsetDateTime createdAt = OffsetDateTime.now();
+        int newPosition = dto.getPosition();
+
+        // di chuyển position chương trước nó
+        dsl.update(CHAPTER)
+                .set(CHAPTER.POSITION, CHAPTER.POSITION.plus(1))
+                .where(CHAPTER.BOOK_ID.eq(bookId))
+                .and(CHAPTER.POSITION.ge(newPosition))
+                .execute();
 
         return dsl.insertInto(CHAPTER)
                 .columns(
@@ -107,10 +139,19 @@ public class ChapterRepository {
                         CHAPTER.STATUS,
                         CHAPTER.CREATED_AT
                 )
-                .values(dto.getBookId(), dto.getPosition(), dto.getTitle(), dto.getContent(), dto.getCoinPrice(), status, createdAt)
-                .returning(CHAPTER.CHAPTER_ID)
-                .fetchOne()
-                .getChapterId();
+                .values(bookId, newPosition, dto.getTitle(), dto.getContent(), dto.getCoinPrice(), dto.getStatus(), createdAt)
+                .returning(
+                        CHAPTER.CHAPTER_ID.as("chapterId"),
+                        CHAPTER.POSITION.as("order"),
+                        CHAPTER.TITLE.as("title"),
+                        CHAPTER.CONTENT.as("content"),
+                        CHAPTER.COIN_PRICE.as("coinPrice"),
+                        CHAPTER.STATUS.as("status"),
+                        CHAPTER.CREATED_AT.as("createdAt")
+                )
+                .fetchOptionalInto(ChapterInputDTO.class)
+                .orElseThrow(() -> new IllegalStateException("Không thể tạo chapter mới"));
+
     }
 
     private void recordView(int chapterId, int accountId) {
@@ -260,6 +301,74 @@ public class ChapterRepository {
             }
             throw e;
         }
+    }
+
+    public ChapterUpdateDTO updateChapter(int accountId, int chapterId, ChapterUpdateDTO dto) {
+
+        boolean bookExists = dsl.fetchExists(
+                DSL.selectOne()
+                        .from(CHAPTER)
+                        .join(BOOK).on(CHAPTER.BOOK_ID.eq(BOOK.BOOK_ID))
+                        .where(CHAPTER.CHAPTER_ID.eq(chapterId))
+                        .and(BOOK.AUTHOR_ACCOUNT_ID.eq(accountId))
+                        .and(BOOK.DELETED_AT.isNull())
+        );
+
+        if (!bookExists) {
+            throw new IllegalArgumentException("Sách không tồn tại hoặc không thuộc về tác giả");
+        }
+
+        UpdateQuery<?> uq = dsl.updateQuery(CHAPTER);
+
+        if (dto.getTitle() != null) {
+            uq.addValue(CHAPTER.TITLE, dto.getTitle());
+        }
+        if (dto.getContent() != null) {
+            uq.addValue(CHAPTER.CONTENT, dto.getContent());
+        }
+        if (dto.getPosition() != null) {
+            uq.addValue(CHAPTER.POSITION, dto.getPosition());
+        }
+        if (dto.getCoinPrice() != null) {
+            uq.addValue(CHAPTER.COIN_PRICE, dto.getCoinPrice());
+        }
+        if (dto.getStatus() != null) {
+            uq.addValue(CHAPTER.STATUS, dto.getStatus());
+        }
+
+        uq.addConditions(CHAPTER.CHAPTER_ID.eq(chapterId));
+
+        int updated = uq.execute();
+        if (updated == 0) {
+            throw new NotFoundException("Chapter không tồn tại hoặc không có trường nào được cập nhật");
+        }
+
+        return dsl.select(
+                CHAPTER.TITLE.as("title"),
+                CHAPTER.POSITION.as("order"),
+                CHAPTER.COIN_PRICE.as("coinPrice"),
+                CHAPTER.STATUS.as("status"),
+                CHAPTER.CONTENT.as("content")
+        )
+                .from(CHAPTER)
+                .where(CHAPTER.CHAPTER_ID.eq(chapterId))
+                .fetchOneInto(ChapterUpdateDTO.class);
+    }
+
+    @Transactional
+    public void softDeleteChapter(int chapterId) {
+        OffsetDateTime now = OffsetDateTime.now();
+
+        int updated = dsl.update(CHAPTER)
+                .set(CHAPTER.DELETED_AT, now)
+                .where(CHAPTER.CHAPTER_ID.eq(chapterId))
+                .execute();
+        if (updated == 0) {
+            throw new IllegalArgumentException("Chapter không tồn tại");
+        }
+        dsl.deleteFrom(COMMENT)
+                .where(COMMENT.CHAPTER_ID.eq(chapterId))
+                .execute();
     }
 
 }

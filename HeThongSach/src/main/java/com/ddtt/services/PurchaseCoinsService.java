@@ -8,6 +8,7 @@ import jakarta.inject.Singleton;
 import java.io.IOException;
 import java.security.InvalidKeyException;
 import java.security.NoSuchAlgorithmException;
+import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 import lombok.RequiredArgsConstructor;
@@ -34,6 +35,10 @@ public class PurchaseCoinsService {
             throw new NotFoundException("Transaction not found: " + transactionId);
         }
         return dto;
+    }
+    
+    public List<PurchaseCoinsDTO> findByAccountId(int accountId){
+        return purchaseCoinsRepository.findByAccountId(accountId);
     }
 
     public boolean verifyPayment(Map<String, Object> payload)

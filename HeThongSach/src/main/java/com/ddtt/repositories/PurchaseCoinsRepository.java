@@ -7,6 +7,7 @@ import lombok.RequiredArgsConstructor;
 import org.jooq.DSLContext;
 import static com.ddtt.jooq.generated.tables.PurchaseCoins.PURCHASE_COINS;
 import static com.ddtt.jooq.generated.tables.CoinPack.COIN_PACK;
+import java.util.List;
 import java.util.UUID;
 
 @Singleton
@@ -48,6 +49,23 @@ public class PurchaseCoinsRepository {
         return result;
     }
 
+    public List<PurchaseCoinsDTO> findByAccountId(int accountId) {
+        return dsl.select(
+                PURCHASE_COINS.TRANSACTION_ID.as("transactionId"),
+                PURCHASE_COINS.ACCOUNT_ID.as("accountId"),
+                COIN_PACK.COIN_AMOUNT.as("coinAmount"),
+                COIN_PACK.PRICE.as("moneyAmount"),
+                PURCHASE_COINS.PAYMENT_METHOD.as("paymentMethod"),
+                PURCHASE_COINS.STATUS.as("status"),
+                PURCHASE_COINS.CREATED_AT.as("createdAt")
+        )
+                .from(PURCHASE_COINS)
+                .join(COIN_PACK).on(PURCHASE_COINS.COIN_PACK_ID.eq(COIN_PACK.COIN_PACK_ID))
+                .where(PURCHASE_COINS.ACCOUNT_ID.eq(accountId))
+                .orderBy(PURCHASE_COINS.CREATED_AT.desc())
+                .fetchInto(PurchaseCoinsDTO.class);
+    }
+
     public int markPaid(UUID transactionId) {
         return dsl.update(PURCHASE_COINS)
                 .set(PURCHASE_COINS.STATUS, "PAID")
@@ -67,6 +85,5 @@ public class PurchaseCoinsRepository {
             throw new IllegalStateException("Transaction not found or cannot update: " + orderId);
         }
     }
-    
-    
+
 }

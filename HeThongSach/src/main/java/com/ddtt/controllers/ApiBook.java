@@ -1,6 +1,7 @@
 package com.ddtt.controllers;
 
 import com.ddtt.dtos.BookFullDetailDTO;
+import com.ddtt.dtos.BookInputDTO;
 import com.ddtt.dtos.BookSummaryDTO;
 import com.ddtt.dtos.CategoryDTO;
 import com.ddtt.dtos.PageResponseDTO;
@@ -8,10 +9,14 @@ import com.ddtt.services.BookService;
 import com.ddtt.services.RecommendationService;
 import io.micronaut.core.annotation.Nullable;
 import io.micronaut.http.HttpResponse;
+import io.micronaut.http.annotation.Body;
 import io.micronaut.http.annotation.Controller;
 import io.micronaut.http.annotation.PathVariable;
 import io.micronaut.http.annotation.Get;
+import io.micronaut.http.annotation.Part;
+import io.micronaut.http.annotation.Patch;
 import io.micronaut.http.annotation.QueryValue;
+import io.micronaut.http.multipart.CompletedFileUpload;
 import io.micronaut.security.authentication.Authentication;
 import jakarta.validation.constraints.Min;
 import jakarta.validation.constraints.Size;
@@ -64,5 +69,26 @@ public class ApiBook {
             @QueryValue(value = "page", defaultValue = "1") @Min(value = 1, message = "page phải >= 1") int page
     ) {
         return HttpResponse.ok(bookService.findBooksByGenrePaged(genreId, page, sort));
+    }
+
+    @Patch("/books/{bookId}")
+    public HttpResponse<BookInputDTO> updateBook(
+            @PathVariable int bookId,
+            @Nullable @Part("title") String title,
+            @Nullable @Part("description") String description,
+            @Nullable @Part("genreId") Integer genreId,
+            @Nullable @Part("tags") List<String> tags,
+            @Nullable @Part("coverImage") CompletedFileUpload coverImage,
+            @Nullable @Part("status") String status,
+            Authentication authentication
+    ) {
+        int accountId = (Integer) authentication.getAttributes().get("accountId");
+        BookInputDTO dto = new BookInputDTO();
+        dto.setTitle(title);
+        dto.setDescription(description);
+        dto.setGenreId(genreId);
+        dto.setTags(tags);
+        dto.setStatus(status);
+        return HttpResponse.ok(bookService.updateBook(bookId, dto, accountId, coverImage));
     }
 }

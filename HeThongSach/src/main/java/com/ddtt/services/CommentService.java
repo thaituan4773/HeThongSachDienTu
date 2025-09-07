@@ -38,16 +38,20 @@ public class CommentService {
     public boolean deleteLikeOrDislike(int commentId, int accountId) {
         return commentRepository.deleteLikeOrDislike(commentId, accountId);
     }
-    
+
     public CommentDTO addComment(int chapterId, int accountId, String content) {
         return commentRepository.addComment(chapterId, accountId, content);
     }
-    
-    public ReplyDTO addReply(int parentCommentId, int accountId, String content){
+
+    public ReplyDTO addReply(int parentCommentId, int accountId, String content) {
         return commentRepository.addReply(parentCommentId, accountId, content);
     }
+
+    public String updateCommentContent(int accountId, int commentId, String newContent) {
+        return commentRepository.updateCommentContent(accountId, commentId, newContent);
+    }
     
-    public boolean deleteComment(int commentId, int accountId) {
-        return commentRepository.deleteComment(commentId, accountId);
+    public boolean deleteComment(int accountId, int commentId){
+        return commentRepository.deleteComment(accountId, commentId);
     }
 }

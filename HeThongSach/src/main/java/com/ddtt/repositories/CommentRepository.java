@@ -15,6 +15,7 @@ import jakarta.transaction.Transactional;
 import java.util.List;
 import org.jooq.Condition;
 import org.jooq.SortField;
+import org.jooq.UpdateQuery;
 import org.jooq.impl.DSL;
 
 @Singleton
@@ -34,8 +35,7 @@ public class CommentRepository {
         int offset = (page - 1) * size;
 
         Condition condition = COMMENT.CHAPTER_ID.eq(chapterId)
-                .and(COMMENT.PARENT_COMMENT_ID.isNull())
-                .and(COMMENT.DELETED_AT.isNull());
+                .and(COMMENT.PARENT_COMMENT_ID.isNull());
 
         SortField<?>[] orderFields;
         orderFields = switch (sort == null ? "" : sort.toLowerCase()) {
@@ -62,8 +62,7 @@ public class CommentRepository {
                 COMMENT.CREATED_AT.as("createdAt"),
                 DSL.selectCount()
                         .from(child)
-                        .where(child.PARENT_COMMENT_ID.eq(COMMENT.COMMENT_ID)
-                                .and(child.DELETED_AT.isNull()))
+                        .where(child.PARENT_COMMENT_ID.eq(COMMENT.COMMENT_ID))
                         .asField("replyCount"),
                 COMMENT_LIKE.IS_LIKE.as("likedByCurrentUser")
         )
@@ -89,8 +88,7 @@ public class CommentRepository {
 
     public PageResponseDTO<ReplyDTO> getRepliesByComment(int parentCommentId, int page, int size, int currentAccountId) {
         int offset = (page - 1) * size;
-        Condition condition = COMMENT.PARENT_COMMENT_ID.eq(parentCommentId)
-                .and(COMMENT.DELETED_AT.isNull());
+        Condition condition = COMMENT.PARENT_COMMENT_ID.eq(parentCommentId);
         List<ReplyDTO> items = dsl.select(
                 COMMENT.COMMENT_ID.as("commentId"),
                 COMMENT.ACCOUNT_ID.as("accountId"),
@@ -165,7 +163,6 @@ public class CommentRepository {
                 dsl.selectOne()
                         .from(COMMENT)
                         .where(COMMENT.COMMENT_ID.eq(parentCommentId))
-                        .and(COMMENT.DELETED_AT.isNull())
         );
 
         if (!parentExists) {
@@ -229,6 +226,20 @@ public class CommentRepository {
         return true;
     }
 
+    public String updateCommentContent(int accountId, int commentId, String newContent) {
+        int updated = dsl.update(COMMENT)
+                .set(COMMENT.CONTENT, newContent)
+                .where(COMMENT.COMMENT_ID.eq(commentId))
+                .and(COMMENT.ACCOUNT_ID.eq(accountId))
+                .execute();
+
+        if (updated == 0) {
+            throw new IllegalArgumentException("Comment không tồn tại hoặc không thuộc về tài khoản");
+        }
+
+        return newContent;
+    }
+
     public boolean deleteLikeOrDislike(int commentId, int accountId) {
         int result = dsl.deleteFrom(COMMENT_LIKE)
                 .where(COMMENT_LIKE.COMMENT_ID.eq(commentId)
@@ -238,64 +249,16 @@ public class CommentRepository {
         return result > 0;
     }
 
-    @Transactional
-    public boolean deleteComment(int commentId, int accountId) {
-        // lấy comment để kiểm tra
-        var record = dsl.select(COMMENT.PARENT_COMMENT_ID)
-                .from(COMMENT)
+    public boolean deleteComment(int accountId, int commentId) {
+        int deleted = dsl.deleteFrom(COMMENT)
                 .where(COMMENT.COMMENT_ID.eq(commentId))
                 .and(COMMENT.ACCOUNT_ID.eq(accountId))
-                .and(COMMENT.DELETED_AT.isNull())
-                .fetchOne();
-
-        if (record == null) {
-            return false;
-        }
-
-        boolean isRoot = record.get(COMMENT.PARENT_COMMENT_ID) == null;
-
-        // Xoá like trước
-        dsl.deleteFrom(COMMENT_LIKE)
-                .where(COMMENT_LIKE.COMMENT_ID.eq(commentId))
                 .execute();
 
-        if (isRoot) {
-            // Nếu là comment gốc
-            // Xoá mềm comment gốc
-            int updated = dsl.update(COMMENT)
-                    .set(COMMENT.DELETED_AT, DSL.currentOffsetDateTime())
-                    .where(COMMENT.COMMENT_ID.eq(commentId))
-                    .execute();
-
-            // Xoá mềm toàn bộ reply
-            var replies = dsl.select(COMMENT.COMMENT_ID)
-                    .from(COMMENT)
-                    .where(COMMENT.PARENT_COMMENT_ID.eq(commentId))
-                    .and(COMMENT.DELETED_AT.isNull())
-                    .fetch(COMMENT.COMMENT_ID);
-
-            if (!replies.isEmpty()) {
-                // Xoá like của tất cả reply
-                dsl.deleteFrom(COMMENT_LIKE)
-                        .where(COMMENT_LIKE.COMMENT_ID.in(replies))
-                        .execute();
-
-                // Xoá mềm reply
-                dsl.update(COMMENT)
-                        .set(COMMENT.DELETED_AT, DSL.currentOffsetDateTime())
-                        .where(COMMENT.COMMENT_ID.in(replies))
-                        .execute();
-            }
-
-            return updated > 0;
-        } else {
-            // Nếu là reply
-            // Xóa mềm reply
-            int updated = dsl.update(COMMENT)
-                    .set(COMMENT.DELETED_AT, DSL.currentOffsetDateTime())
-                    .where(COMMENT.COMMENT_ID.eq(commentId))
-                    .execute();
-            return updated > 0;
+        if (deleted == 0) {
+            throw new IllegalArgumentException("Comment không tồn tại hoặc không thuộc về tài khoản");
         }
+
+        return true;
     }
 }

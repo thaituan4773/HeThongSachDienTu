@@ -6,7 +6,6 @@ import com.ddtt.dtos.AccountDTO;
 import com.ddtt.dtos.LoginRequestDTO;
 import com.ddtt.dtos.TokenResponseDTO;
 import com.ddtt.dtos.RegisterInfoDTO;
-import com.ddtt.exceptions.ForbiddenException;
 import com.ddtt.jooq.generated.tables.records.AccountRecord;
 import com.ddtt.repositories.AccountRepository;
 import com.ddtt.utils.JwtUtils;
@@ -24,6 +23,7 @@ public class AccountService {
     private final AccountRepository accountRepo;
     private final Cloudinary cloudinary;
     private final JwtUtils jwtUtils;
+    private final RefreshTokenService refreshTokenService;
 
     public void addAccount(RegisterInfoDTO info, CompletedFileUpload file) {
         if (file != null && file.getSize() > 0) {
@@ -56,42 +56,24 @@ public class AccountService {
             return new TokenResponseDTO(
                     null,
                     null,
-                    0,
-                    0,
+                    0L,
+                    0L,
                     email
             );
         }
-
         int accountId = accountRepo.getIdByEmail(email);
+        
+        String refreshToken = refreshTokenService.getRefreshTokenByAccountId(accountId);
+        
+        if(refreshToken == null){
+            refreshToken = jwtUtils.generateRefreshToken(email);
+            refreshTokenService.upsertRefreshToken(accountId, refreshToken);
+        }
+            
         String accessToken = jwtUtils.generateTokenForLogin(email, accountId);
-        String refreshToken = jwtUtils.generateRefreshToken(email);
         return new TokenResponseDTO(
                 accessToken,
                 refreshToken,
-                jwtUtils.getLoginExpirationMs(),
-                jwtUtils.getRefreshExpirationMs(),
-                null
-        );
-    }
-
-    public TokenResponseDTO refreshToken(String refreshToken) throws Exception {
-        if (refreshToken == null || refreshToken.isBlank()) {
-            throw new IllegalArgumentException("Yêu cầu refreshToken");
-        }
-
-        String email = jwtUtils.verifyRefreshToken(refreshToken);
-
-        var account = accountRepo.findByEmail(email);
-        if (account == null) {
-            throw new RuntimeException("Không tìm thấy tài khoản");
-        }
-        int accountId = account.get("account_id", Integer.class);
-        String newAccessToken = jwtUtils.generateTokenForLogin(email, accountId);
-        String newRefreshToken = jwtUtils.generateRefreshToken(email);
-
-        return new TokenResponseDTO(
-                newAccessToken,
-                newRefreshToken,
                 jwtUtils.getLoginExpirationMs(),
                 jwtUtils.getRefreshExpirationMs(),
                 null
@@ -114,5 +96,9 @@ public class AccountService {
     public int getBalance(int accountId) {
         return accountRepo.getBalance(accountId);
     }
+    
+    public AccountRecord findByEmail(String email){
+        return accountRepo.findByEmail(email);
+    } 
 
 }

@@ -9,6 +9,7 @@ import io.micronaut.http.annotation.Body;
 import io.micronaut.http.annotation.Controller;
 import io.micronaut.http.annotation.Delete;
 import io.micronaut.http.annotation.Get;
+import io.micronaut.http.annotation.Patch;
 import io.micronaut.http.annotation.PathVariable;
 import io.micronaut.http.annotation.Post;
 import io.micronaut.http.annotation.QueryValue;
@@ -84,14 +85,24 @@ public class ApiComment {
         boolean deleted = commentService.deleteLikeOrDislike(commentId, accountId);
         return deleted ? HttpResponse.noContent() : HttpResponse.notFound();
     }
-
+    
+    @Patch("/comments/{commentId}")
+    public HttpResponse<String> updateCommentContent(
+            @PathVariable int commentId,
+            Authentication authentication,
+            @Body("newContent") String newContent
+    ) {
+        int accountId = (Integer) authentication.getAttributes().get("accountId");
+        
+        return HttpResponse.ok(commentService.updateCommentContent(accountId, commentId, newContent));
+    }
+    
     @Delete("/comments/{commentId}")
     public HttpResponse deleteComment(
             @PathVariable int commentId,
             Authentication authentication
     ) {
-        int accountId = (Integer) authentication.getAttributes().get("accountId");
-        boolean deleted = commentService.deleteComment(commentId, accountId);
+        boolean deleted = commentService.deleteComment(commentId, commentId);
         return deleted ? HttpResponse.noContent() : HttpResponse.notFound();
     }
 }

@@ -42,8 +42,6 @@ public class JwtUtils {
 
         JWTClaimsSet claimsSet = new JWTClaimsSet.Builder()
                 .subject(email)
-                .expirationTime(new Date(System.currentTimeMillis() + emailExpirationMs))
-                .issueTime(new Date())
                 .build();
 
         SignedJWT signedJWT = new SignedJWT(
@@ -76,9 +74,7 @@ public class JwtUtils {
 
         JWTClaimsSet claimsSet = new JWTClaimsSet.Builder()
                 .subject(email)
-                .claim("accountId", accountId) 
-                .expirationTime(new Date(System.currentTimeMillis() + loginExpirationMs))
-                .issueTime(new Date())
+                .claim("accountId", accountId)
                 .build();
 
         SignedJWT signedJWT = new SignedJWT(
@@ -98,11 +94,6 @@ public class JwtUtils {
             throw new SecurityException("Token signature invalid");
         }
 
-        Date expiration = signedJWT.getJWTClaimsSet().getExpirationTime();
-        if (expiration.before(new Date())) {
-            throw new SecurityException("Token expired");
-        }
-
         return signedJWT.getJWTClaimsSet().getIntegerClaim("accountId");
     }
 
@@ -111,8 +102,6 @@ public class JwtUtils {
 
         JWTClaimsSet claimsSet = new JWTClaimsSet.Builder()
                 .subject(email)
-                .expirationTime(new Date(System.currentTimeMillis() + refreshExpirationMs))
-                .issueTime(new Date())
                 .claim("type", "refresh")
                 .build();
 
@@ -130,10 +119,6 @@ public class JwtUtils {
 
         if (!signedJWT.verify(verifier)) {
             throw new SecurityException("Token signature invalid");
-        }
-        Date expiration = signedJWT.getJWTClaimsSet().getExpirationTime();
-        if (expiration.before(new Date())) {
-            throw new SecurityException("Token expired");
         }
         if (!"refresh".equals(signedJWT.getJWTClaimsSet().getStringClaim("type"))) {
             throw new SecurityException("Invalid token type");

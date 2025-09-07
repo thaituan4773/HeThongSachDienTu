@@ -2,9 +2,10 @@ package com.ddtt.services;
 
 import com.cloudinary.Cloudinary;
 import com.cloudinary.utils.ObjectUtils;
-import com.ddtt.dtos.BookCreateDTO;
+import com.ddtt.dtos.BookInputDTO;
 import com.ddtt.dtos.BookDTO;
 import com.ddtt.dtos.BookFullDetailDTO;
+import com.ddtt.dtos.BookSummaryAuthorDTO;
 import com.ddtt.dtos.BookSummaryDTO;
 import com.ddtt.dtos.CategoryDTO;
 import com.ddtt.dtos.PageResponseDTO;
@@ -80,11 +81,15 @@ public class BookService {
         return bookRepository.getBooksByGenrePaged(genreId, page, pageSize, sort);
     }
 
-    public PageResponseDTO<BookSummaryDTO> findBooksByAuthorPaged(int authorId, int page, boolean isAuthor) {
-        return bookRepository.getBooksByAuthorPaged(authorId, page, pageSize, isAuthor);
+    public PageResponseDTO<BookSummaryDTO> findBooksByAuthorPaged(int authorId, int page) {
+        return bookRepository.getBooksByAuthorPaged(authorId, page, pageSize);
     }
 
-    public BookSummaryDTO createBook(BookCreateDTO dto, int authorId, CompletedFileUpload file) {
+    public PageResponseDTO<BookSummaryAuthorDTO> getMyBooks(int authorId, int page) {
+        return bookRepository.getMyBooks(authorId, page, pageSize);
+    }
+
+    public BookSummaryAuthorDTO createBook(BookInputDTO dto, int authorId, CompletedFileUpload file) {
         if (file != null && file.getSize() > 0) {
             try {
                 Map res = cloudinary.uploader()
@@ -95,6 +100,19 @@ public class BookService {
             }
         }
         return bookRepository.createBook(dto, authorId);
+    }
+    
+    public BookInputDTO updateBook(int bookId, BookInputDTO dto, int authorId, CompletedFileUpload file) {
+        if (file != null && file.getSize() > 0) {
+            try {
+                Map res = cloudinary.uploader()
+                        .upload(file.getBytes(), ObjectUtils.asMap("resource_type", "auto"));
+                dto.setCoverImageURL(res.get("secure_url").toString());
+            } catch (IOException ex) {
+                throw new RuntimeException("Lỗi upload ảnh lên Cloudinary", ex);
+            }
+        }
+        return bookRepository.updateBook(bookId, dto, authorId);
     }
 
 }

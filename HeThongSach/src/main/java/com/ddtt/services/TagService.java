@@ -10,8 +10,13 @@ import lombok.RequiredArgsConstructor;
 @RequiredArgsConstructor
 public class TagService {
     private final TagRepository tagRepository;
+    private final int limit = 6;
     
     public List<TagDTO> getAllTags(){
         return tagRepository.getAllTags();
+    }
+    
+    public List<String> suggestTagNames(String prefix){
+        return tagRepository.suggestTagNames(prefix, limit);
     }
 }

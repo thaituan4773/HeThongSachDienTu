@@ -11,7 +11,7 @@ public class TokenResponseDTO {
     // nếu email chưa xác thực, chỉ trả email, còn lại null
     String accessToken;
     String refreshToken;
-    long expiresAt;
-    long refreshExpiresAt;
+    Long expiresAt;
+    Long refreshExpiresAt;
     String email;
 }

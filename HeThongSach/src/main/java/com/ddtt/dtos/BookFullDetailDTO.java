@@ -11,13 +11,13 @@ public class BookFullDetailDTO {
     String genre;
     String coverImageURL;
     String authorName;
-    Integer authorId;
+    int authorId;
     String status;
     String description;
     int totalView;
     int totalRating;
     double avgRating;
-    int totalDonate;
+    Integer totalDonate; // ẩn nếu user ko phải author
     boolean isAuthor;
     boolean isInLibrary;
     int userScore;

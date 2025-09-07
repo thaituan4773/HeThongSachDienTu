@@ -1,12 +1,18 @@
 package com.ddtt.controllers;
 
 import com.ddtt.dtos.ChapterContentDTO;
+import com.ddtt.dtos.ChapterInputDTO;
 import com.ddtt.dtos.ChapterOverviewDTO;
+import com.ddtt.dtos.ChapterUpdateDTO;
 import com.ddtt.dtos.PageResponseDTO;
 import com.ddtt.services.ChapterService;
+import io.micronaut.core.annotation.Nullable;
 import io.micronaut.http.HttpResponse;
+import io.micronaut.http.annotation.Body;
 import io.micronaut.http.annotation.Controller;
 import io.micronaut.http.annotation.Get;
+import io.micronaut.http.annotation.Part;
+import io.micronaut.http.annotation.Patch;
 import io.micronaut.http.annotation.PathVariable;
 import io.micronaut.http.annotation.Post;
 import io.micronaut.http.annotation.QueryValue;
@@ -54,6 +60,34 @@ public class ApiChapter {
     ) {
         int accountId = (Integer) authentication.getAttributes().get("accountId");
         return HttpResponse.ok(chapterService.checkAccess(chapterId, accountId));
+    }
+
+    @Post("/books/{bookId}/chapters")
+    public HttpResponse<ChapterInputDTO> createChapter(
+            @PathVariable int bookId,
+            Authentication authentication,
+            @Part("position") int position,
+            @Part("title") String title,
+            @Part("content") String content,
+            @Nullable @Part("coinPrice") Integer coinPrice
+    ) {
+        int accountId = (Integer) authentication.getAttributes().get("accountId");
+        ChapterInputDTO dto = new ChapterInputDTO();
+        dto.setTitle(title);
+        dto.setPosition(position);
+        dto.setStatus("DRAFT");
+        dto.setCoinPrice(coinPrice != null ? coinPrice : 0);
+        return HttpResponse.ok(chapterService.addChapter(accountId, bookId, dto));
+    }
+
+    @Patch("/chapters/{chapterId}")
+    public HttpResponse<ChapterUpdateDTO> updateChapter(
+            @Body ChapterUpdateDTO dto,
+            @PathVariable int chapterId,
+            Authentication authentication
+    ) {
+        int accountId = (Integer) authentication.getAttributes().get("accountId");
+        return HttpResponse.ok(chapterService.updateChapter(accountId, chapterId, dto));
     }
 
 }

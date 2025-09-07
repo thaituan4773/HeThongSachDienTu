@@ -1,5 +1,6 @@
 package com.ddtt.controllers;
 
+import com.ddtt.dtos.PurchaseCoinsDTO;
 import com.ddtt.services.PurchaseCoinsService;
 import io.micronaut.http.HttpResponse;
 import io.micronaut.http.MediaType;
@@ -14,6 +15,7 @@ import jakarta.validation.constraints.NotEmpty;
 import java.io.IOException;
 import java.security.InvalidKeyException;
 import java.security.NoSuchAlgorithmException;
+import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 import lombok.RequiredArgsConstructor;
@@ -41,6 +43,12 @@ public class ApiPurchaseCoins {
             throws InvalidKeyException, NoSuchAlgorithmException {
         purchaseCoinsService.verifyPayment(payload);
         return HttpResponse.noContent();
+    }
+    
+    @Get("/payments")
+    public HttpResponse<List<PurchaseCoinsDTO>> getTransactionHistory(Authentication authentication) {
+        int accountId = (Integer) authentication.getAttributes().get("accountId");
+        return HttpResponse.ok(purchaseCoinsService.findByAccountId(accountId));
     }
 
     @Get("/payments/result")
