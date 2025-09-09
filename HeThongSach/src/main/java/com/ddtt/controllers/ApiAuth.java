@@ -16,6 +16,7 @@ import io.micronaut.http.annotation.Post;
 import io.micronaut.http.multipart.CompletedFileUpload;
 import io.micronaut.security.authentication.Authentication;
 import jakarta.validation.Valid;
+import jakarta.validation.constraints.Size;
 import java.util.Map;
 import lombok.RequiredArgsConstructor;
 
@@ -29,6 +30,7 @@ public class ApiAuth {
 
     @Post(value = "/register", consumes = "multipart/form-data")
     public HttpResponse<?> register(
+            @Size(max = 30, message = "display name không được vượt quá 30 ký tự")
             @Part("displayName") String displayName,
             @Part("email") String email,
             @Part("password") String password,

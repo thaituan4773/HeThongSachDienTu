@@ -22,4 +22,5 @@ public class BookFullDetailDTO {
     boolean isInLibrary;
     int userScore;
     List<TagDTO> tags;
+    Integer currentChapterId;
 }

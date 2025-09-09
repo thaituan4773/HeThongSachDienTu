@@ -1,8 +1,6 @@
 package com.ddtt.controllers;
 
-import com.ddtt.dtos.EmailVerificationAccountDTO;
 import com.ddtt.services.EmailService;
-import com.ddtt.utils.JwtUtils;
 import io.micronaut.http.HttpResponse;
 import io.micronaut.http.MediaType;
 import io.micronaut.http.annotation.Controller;
@@ -15,27 +13,11 @@ import lombok.RequiredArgsConstructor;
 public class ApiEmailVerification {
 
     private final EmailService emailService;
-    private final JwtUtils jwtUtils;
     private static final String DEEPLINK = "mystore://login";
 
     @Get("/verify")
     public HttpResponse<String> verify(@QueryValue String token) throws Exception {
-        String email = jwtUtils.verifyEmailToken(token);
-        if (email == null) {
-            return HttpResponse.badRequest("Invalid or expired token");
-        }
-
-        EmailVerificationAccountDTO account = emailService.findByEmail(email);
-        if (account == null) {
-            return HttpResponse.badRequest("Account not found");
-        }
-        if (account.getEmailVerified()) {
-            return HttpResponse.badRequest("Email already verified");
-        }
-
-        // Mark email as verified
-        emailService.markEmailVerified(account.getAccountId());
-
+        emailService.verifyToken(token);
         // HTML hiển thị thông báo + tự động mở app
         String html = """
                       <!DOCTYPE html>

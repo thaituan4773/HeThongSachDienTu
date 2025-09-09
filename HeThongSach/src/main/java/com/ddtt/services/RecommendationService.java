@@ -36,6 +36,7 @@ public class RecommendationService {
             return new CategoryDTO("recommended", "Dành cho bạn", trending);
         }
 
+        // chuẩn hóa
         Map<Integer, Double> genreProbs = normalizeCounts(genreCounts);
         Map<Integer, Double> tagProbs = normalizeCounts(tagCounts);
 
@@ -56,20 +57,19 @@ public class RecommendationService {
             tagProbs.forEach((k, v) -> combined.put("T:" + k, v * beta));
         }
 
-        // Trường hợp một bên rỗng, có thể scale lại để tổng = (alpha hoặc beta) < 1 → phần còn lại do exploration bù
-        // Hoặc chuẩn hoá lại ở đây nếu muốn tổng (trước exploration) = 1:
+        // chuẩn hóa
         double preSum = combined.values().stream().mapToDouble(Double::doubleValue).sum();
         if (preSum > 0) {
-            combined.replaceAll((k, v) -> v / preSum); // giờ tổng = 1 trước khi add exploration
+            combined.replaceAll((k, v) -> v / preSum);
         }
 
-        // Exploration: phân bổ e đều + (1 - e) * distribution cũ
+        // Exploration
         if (!combined.isEmpty()) {
             double explorationPerKey = explorationRate / combined.size();
             combined.replaceAll((k, v) -> v * (1 - explorationRate) + explorationPerKey);
         }
 
-        // Normalize sau exploration (đảm bảo sum = 1 do sai số double)
+        // Normalize sau exploration tránh sai số do double
         double finalSum = combined.values().stream().mapToDouble(Double::doubleValue).sum();
         if (finalSum > 0) {
             combined.replaceAll((k, v) -> v / finalSum);

@@ -53,20 +53,13 @@ public class JwtUtils {
         return signedJWT.serialize();
     }
 
-    public String verifyEmailToken(String token) throws Exception {
+    public void verifyEmailToken(String token) throws Exception {
         SignedJWT signedJWT = SignedJWT.parse(token);
         JWSVerifier verifier = new MACVerifier(emailSecret);
 
         if (!signedJWT.verify(verifier)) {
             throw new SecurityException("Token signature invalid");
         }
-
-        Date expiration = signedJWT.getJWTClaimsSet().getExpirationTime();
-        if (expiration.before(new Date())) {
-            throw new SecurityException("Token expired");
-        }
-
-        return signedJWT.getJWTClaimsSet().getSubject();
     }
 
     public String generateTokenForLogin(String email, int accountId) throws Exception {

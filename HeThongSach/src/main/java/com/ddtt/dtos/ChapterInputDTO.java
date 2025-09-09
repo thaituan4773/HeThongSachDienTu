@@ -1,15 +1,16 @@
 package com.ddtt.dtos;
 
-import java.time.OffsetDateTime;
+import io.micronaut.core.annotation.Introspected;
+import io.micronaut.serde.annotation.Serdeable;
 import lombok.Data;
 
 @Data
+@Serdeable
+@Introspected
 public class ChapterInputDTO {
-    Integer chapterId;
-    int position;
     String title;
     String content;
-    int coinPrice;
+    Integer coinPrice;
+    Integer position;
     String status;
-    OffsetDateTime createdAt;
 }

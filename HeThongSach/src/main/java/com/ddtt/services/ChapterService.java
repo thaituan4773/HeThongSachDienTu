@@ -1,6 +1,7 @@
 package com.ddtt.services;
 
 import com.ddtt.dtos.ChapterContentDTO;
+import com.ddtt.dtos.ChapterEditDTO;
 import com.ddtt.dtos.ChapterInputDTO;
 import com.ddtt.dtos.ChapterOverviewDTO;
 import com.ddtt.dtos.ChapterUpdateDTO;
@@ -8,6 +9,8 @@ import com.ddtt.dtos.PageResponseDTO;
 import com.ddtt.exceptions.ForbiddenException;
 import com.ddtt.repositories.ChapterRepository;
 import jakarta.inject.Singleton;
+import java.math.BigDecimal;
+import java.util.List;
 import lombok.RequiredArgsConstructor;
 
 @Singleton
@@ -43,12 +46,32 @@ public class ChapterService {
     public boolean checkAccess(int chapterId, int accountId) {
         return chapterRepository.hasChapterAccess(chapterId, accountId);
     }
-    
-    public ChapterInputDTO addChapter(int accountId, int bookId, ChapterInputDTO dto){
-        return chapterRepository.addChapter(accountId, bookId, dto);
+
+    public boolean addChapter(int accountId, int bookId, ChapterInputDTO dto) {
+        chapterRepository.addChapter(accountId, bookId, dto);
+        return true;
+    }
+
+    public void updateChapter(int accountId, int chapterId, ChapterUpdateDTO dto) {
+        if (dto.getPosition() == null) {
+            dto.setPosition(-1);
+        }
+        chapterRepository.updateChapter(accountId, chapterId, dto);
+    }
+
+    public int getChapterPrice(int chapterId) {
+        return chapterRepository.getChapterPrice(chapterId);
+    }
+
+    public List<ChapterEditDTO> getChaptersForEdit(int accountId, int bookId) {
+        return chapterRepository.getChaptersForEdit(accountId, bookId);
+    }
+
+    public String getChapterContent(int accountId, int chapterId) {
+        return chapterRepository.getChapterContent(accountId, chapterId);
     }
     
-    public ChapterUpdateDTO updateChapter(int accountId, int chapterId, ChapterUpdateDTO dto) {
-        return chapterRepository.updateChapter(accountId, chapterId, dto);
+    public void updateReadingProgress(int accountId, int chapterId, BigDecimal progressPercent){
+        chapterRepository.updateReadingProgress(accountId, chapterId, progressPercent);
     }
 }

@@ -1,23 +1,24 @@
 package com.ddtt.controllers;
 
 import com.ddtt.dtos.ChapterContentDTO;
+import com.ddtt.dtos.ChapterEditDTO;
 import com.ddtt.dtos.ChapterInputDTO;
 import com.ddtt.dtos.ChapterOverviewDTO;
 import com.ddtt.dtos.ChapterUpdateDTO;
 import com.ddtt.dtos.PageResponseDTO;
 import com.ddtt.services.ChapterService;
-import io.micronaut.core.annotation.Nullable;
 import io.micronaut.http.HttpResponse;
 import io.micronaut.http.annotation.Body;
 import io.micronaut.http.annotation.Controller;
 import io.micronaut.http.annotation.Get;
-import io.micronaut.http.annotation.Part;
 import io.micronaut.http.annotation.Patch;
 import io.micronaut.http.annotation.PathVariable;
 import io.micronaut.http.annotation.Post;
 import io.micronaut.http.annotation.QueryValue;
 import io.micronaut.security.authentication.Authentication;
 import jakarta.validation.constraints.Min;
+import java.math.BigDecimal;
+import java.util.List;
 import lombok.RequiredArgsConstructor;
 
 @Controller("/api")
@@ -63,31 +64,58 @@ public class ApiChapter {
     }
 
     @Post("/books/{bookId}/chapters")
-    public HttpResponse<ChapterInputDTO> createChapter(
+    public HttpResponse<Boolean> createChapter(
             @PathVariable int bookId,
             Authentication authentication,
-            @Part("position") int position,
-            @Part("title") String title,
-            @Part("content") String content,
-            @Nullable @Part("coinPrice") Integer coinPrice
+            @Body ChapterInputDTO dto
     ) {
         int accountId = (Integer) authentication.getAttributes().get("accountId");
-        ChapterInputDTO dto = new ChapterInputDTO();
-        dto.setTitle(title);
-        dto.setPosition(position);
-        dto.setStatus("DRAFT");
-        dto.setCoinPrice(coinPrice != null ? coinPrice : 0);
-        return HttpResponse.ok(chapterService.addChapter(accountId, bookId, dto));
+        return HttpResponse.created(chapterService.addChapter(accountId, bookId, dto));
     }
 
     @Patch("/chapters/{chapterId}")
-    public HttpResponse<ChapterUpdateDTO> updateChapter(
+    public HttpResponse updateChapter(
             @Body ChapterUpdateDTO dto,
             @PathVariable int chapterId,
             Authentication authentication
     ) {
         int accountId = (Integer) authentication.getAttributes().get("accountId");
-        return HttpResponse.ok(chapterService.updateChapter(accountId, chapterId, dto));
+        chapterService.updateChapter(accountId, chapterId, dto);
+        return HttpResponse.ok();
+    }
+
+    @Get("/chapters/{chapterId}/price")
+    public HttpResponse<Integer> getChapterPrice(@PathVariable int chapterId) {
+        return HttpResponse.ok(chapterService.getChapterPrice(chapterId));
+    }
+
+    @Get("/me/books/{bookId}/chapters")
+    public HttpResponse<List<ChapterEditDTO>> gethaptersForEdit(
+            @PathVariable int bookId,
+            Authentication authentication
+    ) {
+        int accountId = (Integer) authentication.getAttributes().get("accountId");
+        return HttpResponse.ok(chapterService.getChaptersForEdit(accountId, bookId));
+    }
+
+    @Get("/me/chapters/{chapterId}/content")
+    public HttpResponse<String> getChatperContentForEdit(
+            @PathVariable int chapterId,
+            Authentication authentication
+    ) {
+        int accountId = (Integer) authentication.getAttributes().get("accountId");
+        return HttpResponse.ok(chapterService.getChapterContent(accountId, chapterId));
+    }
+
+    @Post("/chapters/{chapterId}/progress")
+    public HttpResponse updateProgress(
+            @PathVariable int chapterId,
+            Authentication authentication,
+            @Body("progressPercent") BigDecimal progressPercent
+    ) {
+        int accountId = (Integer) authentication.getAttributes().get("accountId");
+        chapterService.updateReadingProgress(accountId, chapterId, progressPercent);
+        return HttpResponse.ok();
     }
 
 }

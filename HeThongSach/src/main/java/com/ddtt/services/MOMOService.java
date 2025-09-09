@@ -56,7 +56,7 @@ public class MOMOService {
         String requestType = "captureWallet";
         String extraData = "";
         String lang = "vi";
-        String orderInfo = "Mua gói " + packName + " (" + coinAmount + ") trị giá " + coinPrice + " VND";
+        String orderInfo = "Mua gói " + packName + " (" + coinAmount + "xu) trị giá " + coinPrice + " VND";
 
         String rawData = new StringBuilder()
                 .append("accessKey=").append(accessKey).append("&")
@@ -102,10 +102,6 @@ public class MOMOService {
         );
     }
     
-    private String getString(Map<String, Object> payload, String key) {
-    Object val = payload.get(key);
-    return val == null ? "" : val.toString();
-}
 
     public boolean verifyResponseSignature(Map<String, Object> payload) throws InvalidKeyException, NoSuchAlgorithmException {
         Function<String, String> v = key -> Objects.toString(payload.get(key), "");

@@ -2,9 +2,9 @@ package com.ddtt.dtos;
 
 import io.micronaut.core.annotation.Introspected;
 import io.micronaut.serde.annotation.Serdeable;
-import lombok.Value;
+import lombok.Data;
 
-@Value
+@Data
 @Introspected
 @Serdeable
 public class ChapterUpdateDTO {

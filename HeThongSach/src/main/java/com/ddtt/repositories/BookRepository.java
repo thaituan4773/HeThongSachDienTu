@@ -149,6 +149,7 @@ public class BookRepository {
                 .from(BOOK)
                 .leftJoin(BOOK_STATS).on(BOOK.BOOK_ID.eq(BOOK_STATS.BOOK_ID))
                 .where(BookConditions.discoverableStatus())
+                .and(BOOK_STATS.TOTAL_RATING.gt(0L))
                 .orderBy(
                         score.desc(),
                         BOOK_STATS.TOTAL_RATING.desc(),
@@ -175,7 +176,8 @@ public class BookRepository {
                 BOOK_STATS.TOTAL_DONATE.as("totalDonate"),
                 DSL.when(BOOK.AUTHOR_ACCOUNT_ID.eq(accountId), true).otherwise(false).as("isAuthor"),
                 DSL.when(PERSONAL_LIBRARY.BOOK_ID.eq(bookId), true).otherwise(false).as("isInLibrary"),
-                DSL.coalesce(RATING.SCORE, DSL.inline(0)).as("userScore")
+                DSL.coalesce(RATING.SCORE, DSL.inline(0)).as("userScore"),
+                READING_PROGRESS.CURRENT_CHAPTER_ID.as("currentChapterId")
         )
                 .from(BOOK)
                 .join(GENRE).on(BOOK.GENRE_ID.eq(GENRE.GENRE_ID))
@@ -183,6 +185,7 @@ public class BookRepository {
                 .leftJoin(BOOK_STATS).on(BOOK.BOOK_ID.eq(BOOK_STATS.BOOK_ID))
                 .leftJoin(RATING).on(RATING.BOOK_ID.eq(BOOK.BOOK_ID).and(RATING.ACCOUNT_ID.eq(accountId)))
                 .leftJoin(PERSONAL_LIBRARY).on(PERSONAL_LIBRARY.BOOK_ID.eq(BOOK.BOOK_ID)).and(PERSONAL_LIBRARY.ACCOUNT_ID.eq(accountId))
+                .leftJoin(READING_PROGRESS).on(READING_PROGRESS.BOOK_ID.eq(BOOK.BOOK_ID)).and(READING_PROGRESS.ACCOUNT_ID.eq(accountId))
                 .where(BOOK.BOOK_ID.eq(bookId))
                 .and(BOOK.DELETED_AT.isNull())
                 .fetchOneInto(BookFullDetailDTO.class);
@@ -440,7 +443,7 @@ public class BookRepository {
     }
 
     @Transactional
-    public BookInputDTO updateBook(int bookId, BookInputDTO dto, int authorId) {
+    public boolean updateBook(int bookId, BookInputDTO dto, int authorId) {
         UpdateQuery<?> uq = dsl.updateQuery(BOOK);
 
         if (dto.getTitle() != null) {
@@ -466,29 +469,17 @@ public class BookRepository {
         );
 
         int updated = uq.execute();
-        if (updated == 0) {
+        if (updated == 0 && dto.getTags() == null) {
             throw new IllegalArgumentException(
                     "Tác phẩm không tồn tại, không thuộc về tác giả, hoặc không có trường nào được cập nhật"
             );
         }
-
-        BookInputDTO updatedBook = dsl.select(
-                BOOK.TITLE.as("title"),
-                BOOK.DESCRIPTION.as("description"),
-                BOOK.GENRE_ID.as("genreId"),
-                BOOK.COVER_IMAGE_URL.as("coverImageURL"),
-                BOOK.STATUS.as("status")
-        )
-                .from(BOOK)
-                .where(BOOK.BOOK_ID.eq(bookId))
-                .fetchOneInto(BookInputDTO.class);
-
         if (dto.getTags() != null) {
             tagRepository.insertTagsIfNotExists(bookId, dto.getTags());
             tagRepository.deleteTagsNotIn(bookId, dto.getTags());
         }
 
-        return updatedBook;
+        return true;
     }
 
     @Transactional

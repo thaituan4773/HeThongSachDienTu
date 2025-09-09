@@ -102,7 +102,7 @@ public class BookService {
         return bookRepository.createBook(dto, authorId);
     }
     
-    public BookInputDTO updateBook(int bookId, BookInputDTO dto, int authorId, CompletedFileUpload file) {
+    public boolean updateBook(int bookId, BookInputDTO dto, int authorId, CompletedFileUpload file) {
         if (file != null && file.getSize() > 0) {
             try {
                 Map res = cloudinary.uploader()

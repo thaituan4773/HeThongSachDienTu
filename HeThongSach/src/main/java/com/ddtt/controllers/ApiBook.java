@@ -9,7 +9,6 @@ import com.ddtt.services.BookService;
 import com.ddtt.services.RecommendationService;
 import io.micronaut.core.annotation.Nullable;
 import io.micronaut.http.HttpResponse;
-import io.micronaut.http.annotation.Body;
 import io.micronaut.http.annotation.Controller;
 import io.micronaut.http.annotation.PathVariable;
 import io.micronaut.http.annotation.Get;
@@ -71,8 +70,8 @@ public class ApiBook {
         return HttpResponse.ok(bookService.findBooksByGenrePaged(genreId, page, sort));
     }
 
-    @Patch("/books/{bookId}")
-    public HttpResponse<BookInputDTO> updateBook(
+    @Patch(value = "/books/{bookId}", consumes = "multipart/form-data")
+    public HttpResponse<Boolean> updateBook(
             @PathVariable int bookId,
             @Nullable @Part("title") String title,
             @Nullable @Part("description") String description,

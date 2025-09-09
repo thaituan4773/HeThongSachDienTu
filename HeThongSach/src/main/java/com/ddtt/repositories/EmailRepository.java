@@ -14,15 +14,15 @@ import java.nio.charset.StandardCharsets;
 import java.time.OffsetDateTime;
 import org.jooq.DSLContext;
 
-@RequiredArgsConstructor
 @Singleton
 @Blocking
+@RequiredArgsConstructor
 public class EmailRepository {
 
     private final DSLContext dsl;
-    private final long cooldownSeconds = 300;
+    private final int expireDuration = 15;
     private final EmailSender<?, ?> emailSender;
-    private final String appSchemeBase = "https://uncommon-gazelle-regularly.ngrok-free.app/api/verify?token=";
+    private final String appSchemeBase = "https://randomtoaster.share.zrok.io/api/verify?token=";
     private final JwtUtils jwtUtils;
 
     public void sendVerificationEmail(String to, String token) {
@@ -36,57 +36,29 @@ public class EmailRepository {
                 .body(body));
     }
 
-    public boolean sendVerificationIfAllowed(String email) {
-        var acc = dsl.select(ACCOUNT.ACCOUNT_ID, ACCOUNT.EMAIL_VERIFIED)
-                .from(ACCOUNT)
-                .where(ACCOUNT.EMAIL.eq(email))
-                .fetchOne();
-
-        if (acc == null) {
-            throw new IllegalArgumentException("Account not found");
-        }
-        int accountId = acc.get(ACCOUNT.ACCOUNT_ID);
-        Boolean verified = acc.get(ACCOUNT.EMAIL_VERIFIED);
-        if (verified != null && verified) {
-            return false;
-        }
-
-        var rec = dsl.selectFrom(EMAIL_VERIFICATION_REQUEST)
-                .where(EMAIL_VERIFICATION_REQUEST.ACCOUNT_ID.eq(accountId))
-                .fetchOne();
-
+    public void createRequest(String email, int accountId) {
         OffsetDateTime now = OffsetDateTime.now();
-        if (rec != null) {
-            OffsetDateTime lastRequest = rec.getRequestedAt();
-            if (lastRequest.plusSeconds(cooldownSeconds).isAfter(now)) {
-                // chưa đủ 5 phút
-                return false;
-            }
-        }
 
         String token;
         try {
             token = jwtUtils.generateTokenForEmail(email);
         } catch (Exception e) {
-            throw new RuntimeException("Cannot generate token", e);
+            throw new RuntimeException("Không thể tạo token", e);
         }
 
-        if (rec == null) {
-            dsl.insertInto(EMAIL_VERIFICATION_REQUEST)
-                    .set(EMAIL_VERIFICATION_REQUEST.ACCOUNT_ID, accountId)
-                    .set(EMAIL_VERIFICATION_REQUEST.REQUESTED_AT, now)
-                    .execute();
-        } else {
-            dsl.update(EMAIL_VERIFICATION_REQUEST)
-                    .set(EMAIL_VERIFICATION_REQUEST.REQUESTED_AT, now)
-                    .where(EMAIL_VERIFICATION_REQUEST.ACCOUNT_ID.eq(accountId))
-                    .execute();
-        }
+        OffsetDateTime expiredAt = now.plusMinutes(expireDuration);
+
+        dsl.insertInto(EMAIL_VERIFICATION_REQUEST)
+                .set(EMAIL_VERIFICATION_REQUEST.ACCOUNT_ID, accountId)
+                .set(EMAIL_VERIFICATION_REQUEST.REQUESTED_AT, now)
+                .set(EMAIL_VERIFICATION_REQUEST.TOKEN, token)
+                .set(EMAIL_VERIFICATION_REQUEST.EXPIRED_AT, expiredAt)
+                .set(EMAIL_VERIFICATION_REQUEST.VERIFIED, false)
+                .execute();
+
         sendVerificationEmail(email, token);
-
-        return true;
     }
-    
+
     public EmailVerificationAccountDTO findByEmail(String email) {
         var record = dsl.selectFrom(ACCOUNT)
                 .where(ACCOUNT.EMAIL.eq(email))
@@ -101,12 +73,42 @@ public class EmailRepository {
                 record.getEmailVerified()
         );
     }
-    
-    public void markEmailVerified(int accountId) {
+
+    public boolean verifyToken(String token) {
+        var request = dsl.selectFrom(EMAIL_VERIFICATION_REQUEST)
+                .where(EMAIL_VERIFICATION_REQUEST.TOKEN.eq(token))
+                .fetchOne();
+
+        if (request == null) {
+            return false; // token không tồn tại
+        }
+
+        // Kiểm tra đã verified chưa
+        if (request.getVerified() != null && request.getVerified()) {
+            return false; // token đã dùng rồi
+        }
+
+        // Kiểm tra expired
+        OffsetDateTime now = OffsetDateTime.now();
+        if (request.getExpiredAt().isBefore(now)) {
+            return false; // token đã hết hạn
+        }
+
+        int accountId = request.getAccountId();
+
+        // Update trạng thái request
+        dsl.update(EMAIL_VERIFICATION_REQUEST)
+                .set(EMAIL_VERIFICATION_REQUEST.VERIFIED, true)
+                .where(EMAIL_VERIFICATION_REQUEST.REQUEST_ID.eq(request.getRequestId()))
+                .execute();
+
+        // Update account
         dsl.update(ACCOUNT)
                 .set(ACCOUNT.EMAIL_VERIFIED, true)
                 .where(ACCOUNT.ACCOUNT_ID.eq(accountId))
                 .execute();
+
+        return true;
     }
 
 }
