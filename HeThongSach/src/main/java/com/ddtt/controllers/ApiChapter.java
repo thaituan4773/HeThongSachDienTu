@@ -10,6 +10,7 @@ import com.ddtt.services.ChapterService;
 import io.micronaut.http.HttpResponse;
 import io.micronaut.http.annotation.Body;
 import io.micronaut.http.annotation.Controller;
+import io.micronaut.http.annotation.Delete;
 import io.micronaut.http.annotation.Get;
 import io.micronaut.http.annotation.Patch;
 import io.micronaut.http.annotation.PathVariable;
@@ -116,6 +117,16 @@ public class ApiChapter {
         int accountId = (Integer) authentication.getAttributes().get("accountId");
         chapterService.updateReadingProgress(accountId, chapterId, progressPercent);
         return HttpResponse.ok();
+    }
+    
+    @Delete("/chapters/{chapterId}")
+    public HttpResponse deleteChapter(
+           @PathVariable int chapterId,
+            Authentication authentication 
+    ) {
+        int accountId = (Integer) authentication.getAttributes().get("accountId");
+        chapterService.softDeleteChapter(accountId, chapterId);
+        return HttpResponse.noContent();
     }
 
 }

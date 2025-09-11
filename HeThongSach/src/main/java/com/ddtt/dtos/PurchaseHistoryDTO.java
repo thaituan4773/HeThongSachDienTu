@@ -6,10 +6,7 @@ import lombok.Value;
 
 @Value
 @Serdeable
-public class ChapterEditDTO {
-    int chapterId;
-    String title;
-    int coinPrice;
-    Date createdDate;
-    String status;
+public class PurchaseHistoryDTO {
+    int coin;
+    Date date;
 }

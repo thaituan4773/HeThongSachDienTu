@@ -1,6 +1,8 @@
 package com.ddtt.repositories;
 
+import com.ddtt.dtos.PageResponseDTO;
 import com.ddtt.dtos.PurchaseCoinsDTO;
+import com.ddtt.dtos.PurchaseHistoryDTO;
 import io.micronaut.core.annotation.Blocking;
 import jakarta.inject.Singleton;
 import lombok.RequiredArgsConstructor;
@@ -66,15 +68,6 @@ public class PurchaseCoinsRepository {
                 .fetchInto(PurchaseCoinsDTO.class);
     }
 
-    public int markPaid(UUID transactionId) {
-        return dsl.update(PURCHASE_COINS)
-                .set(PURCHASE_COINS.STATUS, "PAID")
-                .set(PURCHASE_COINS.PAYMENT_METHOD, "MOMO")
-                .where(PURCHASE_COINS.TRANSACTION_ID.eq(transactionId))
-                .and(PURCHASE_COINS.STATUS.eq("PENDING"))
-                .execute();
-    }
-
     public void updateStatus(UUID orderId, String status) {
         int updated = dsl.update(PURCHASE_COINS)
                 .set(PURCHASE_COINS.STATUS, status)
@@ -84,6 +77,40 @@ public class PurchaseCoinsRepository {
         if (updated == 0) {
             throw new IllegalStateException("Transaction not found or cannot update: " + orderId);
         }
+    }
+
+    public PageResponseDTO<PurchaseHistoryDTO> getPurchaseHistoryPaged(int accountId, int page, int size) {
+        int offset = (page - 1) * size;
+
+        // Query lấy items
+        List<PurchaseHistoryDTO> items = dsl.select(
+                COIN_PACK.COIN_AMOUNT.as("coin"),
+                PURCHASE_COINS.CREATED_AT.as("date")
+        )
+                .from(PURCHASE_COINS)
+                .join(COIN_PACK).on(PURCHASE_COINS.COIN_PACK_ID.eq(COIN_PACK.COIN_PACK_ID))
+                .where(PURCHASE_COINS.ACCOUNT_ID.eq(accountId))
+                .and(PURCHASE_COINS.STATUS.eq("SUCCESS"))
+                .orderBy(PURCHASE_COINS.CREATED_AT.desc())
+                .limit(size)
+                .offset(offset)
+                .fetchInto(PurchaseHistoryDTO.class);
+
+        // Chỉ tính tổng và tổng trang ở page 1
+        Long total = null;
+        Integer totalPages = null;
+        if (page == 1) {
+            long cnt = dsl.fetchCount(
+                    dsl.select(PURCHASE_COINS.TRANSACTION_ID)
+                            .from(PURCHASE_COINS)
+                            .where(PURCHASE_COINS.ACCOUNT_ID.eq(accountId))
+                            .and(PURCHASE_COINS.STATUS.eq("SUCCESS"))
+            );
+            total = cnt;
+            totalPages = (int) Math.ceil((double) cnt / size);
+        }
+
+        return new PageResponseDTO<>(total, page, size, totalPages, items);
     }
 
 }

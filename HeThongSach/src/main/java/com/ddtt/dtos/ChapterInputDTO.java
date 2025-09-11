@@ -11,6 +11,5 @@ public class ChapterInputDTO {
     String title;
     String content;
     Integer coinPrice;
-    Integer position;
     String status;
 }

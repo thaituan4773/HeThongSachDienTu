@@ -85,7 +85,7 @@ public class ApiComment {
         boolean deleted = commentService.deleteLikeOrDislike(commentId, accountId);
         return deleted ? HttpResponse.noContent() : HttpResponse.notFound();
     }
-    
+
     @Patch("/comments/{commentId}")
     public HttpResponse<String> updateCommentContent(
             @PathVariable int commentId,
@@ -93,16 +93,17 @@ public class ApiComment {
             @Body("newContent") String newContent
     ) {
         int accountId = (Integer) authentication.getAttributes().get("accountId");
-        
+
         return HttpResponse.ok(commentService.updateCommentContent(accountId, commentId, newContent));
     }
-    
+
     @Delete("/comments/{commentId}")
     public HttpResponse deleteComment(
             @PathVariable int commentId,
             Authentication authentication
     ) {
-        boolean deleted = commentService.deleteComment(commentId, commentId);
+        int accountId = (Integer) authentication.getAttributes().get("accountId");
+        boolean deleted = commentService.deleteComment(accountId, commentId);
         return deleted ? HttpResponse.noContent() : HttpResponse.notFound();
     }
 }

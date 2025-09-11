@@ -9,7 +9,6 @@ import lombok.Data;
 @Serdeable
 public class ChapterUpdateDTO {
     String title;
-    Integer position;
     Integer coinPrice;
     String status;
     String content;

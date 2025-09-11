@@ -1,5 +1,6 @@
 package com.ddtt.controllers;
 
+import com.ddtt.dtos.AccountInfoDTO;
 import com.ddtt.dtos.LoginRequestDTO;
 import com.ddtt.dtos.RegisterInfoDTO;
 import com.ddtt.dtos.TokenResponseDTO;
@@ -11,6 +12,7 @@ import io.micronaut.http.HttpResponse;
 import io.micronaut.http.annotation.Body;
 import io.micronaut.http.annotation.Controller;
 import io.micronaut.http.annotation.Delete;
+import io.micronaut.http.annotation.Get;
 import io.micronaut.http.annotation.Part;
 import io.micronaut.http.annotation.Post;
 import io.micronaut.http.multipart.CompletedFileUpload;
@@ -73,5 +75,13 @@ public class ApiAuth {
         }
         return HttpResponse.ok(refreshTokenService.refreshToken(refreshToken));
 
+    }
+    
+    @Get("/me/info")
+    public HttpResponse<AccountInfoDTO> getInfo(Authentication authentication){
+        int accountId = (Integer) authentication.getAttributes().get("accountId");
+        int balance = accountService.getBalance(accountId);
+        AccountInfoDTO dto = new AccountInfoDTO(accountId, balance);
+        return HttpResponse.ok(dto);
     }
 }

@@ -23,6 +23,7 @@ import io.micronaut.core.annotation.Blocking;
 import jakarta.inject.Singleton;
 import jakarta.transaction.Transactional;
 import java.time.OffsetDateTime;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
 import lombok.RequiredArgsConstructor;
@@ -213,91 +214,62 @@ public class BookRepository {
         return bookDetail;
     }
 
-    // Tìm theo tên sách, description
-    public PageResponseDTO<BookSummaryDTO> searchBooks(String kw, int page, int size) {
-        int offset = (page - 1) * size;
-
-        if (kw == null || kw.trim().isEmpty()) {
-            return null;
-        }
-
-        Field<String> pattern = DSL.val("%" + kw.trim() + "%");
-        var titleCond = BOOK.TITLE.likeIgnoreCase(pattern);
-        var descCond = BOOK.DESCRIPTION.likeIgnoreCase(pattern);
-        var authorCond = ACCOUNT.DISPLAY_NAME.likeIgnoreCase(pattern);
-
-        // mức độ phù hợp: title +10 description +5 author +7
-        Field<Integer> titleScore = DSL.when(titleCond, DSL.inline(10)).otherwise(0);
-        Field<Integer> descScore = DSL.when(descCond, DSL.inline(5)).otherwise(0);
-        Field<Integer> authorScore = DSL.when(authorCond, DSL.inline(7)).otherwise(0);
-        Field<Integer> matchScore = titleScore.add(descScore).add(authorScore);
-        Condition searchCondition = titleCond.or(descCond).or(authorCond);
-        Condition condition = BookConditions.discoverableStatus().and(ACCOUNT.DELETED_AT.isNull()).and(searchCondition);
-        List<BookSummaryDTO> items = dsl.select(
-                BOOK.BOOK_ID.as("bookId"),
-                BOOK.TITLE.as("title"),
-                BOOK.COVER_IMAGE_URL.as("coverImageURL"),
-                BOOK_STATS.TOTAL_VIEW.as("totalView"),
-                BOOK_STATS.TOTAL_RATING.as("totalRating"),
-                BOOK_STATS.AVG_RATING.as("avgRating")
-        )
-                .from(BOOK)
-                .leftJoin(BOOK_STATS).on(BOOK.BOOK_ID.eq(BOOK_STATS.BOOK_ID))
-                .join(ACCOUNT).on(ACCOUNT.ACCOUNT_ID.eq(BOOK.AUTHOR_ACCOUNT_ID))
-                .where(condition)
-                .orderBy(
-                        matchScore.desc(),
-                        BOOK.CREATED_AT.desc(),
-                        BOOK.BOOK_ID.desc()
-                )
-                .limit(size)
-                .offset(offset)
-                .fetchInto(BookSummaryDTO.class);
-
-        // Tính tổng số item và tổng số page, chỉ tính ở trang đầu
-        Long total = null;
-        Integer totalPages = null;
-        if (page == 1) {
-            long cnt = dsl.fetchCount(
-                    dsl.select(BOOK.BOOK_ID)
-                            .from(BOOK)
-                            .join(ACCOUNT).on(ACCOUNT.ACCOUNT_ID.eq(BOOK.AUTHOR_ACCOUNT_ID))
-                            .where(condition)
-            );
-            total = cnt;
-            totalPages = (int) Math.ceil((double) cnt / size);
-        }
-
-        return new PageResponseDTO<>(total, page, size, totalPages, items);
-    }
-
-    public PageResponseDTO<BookSummaryDTO> getBooksByGenrePaged(
-            int genreId,
+    public PageResponseDTO<BookSummaryDTO> searchOrFilterBooks(
+            String titleKw, // tìm theo title
+            String descKw, // tìm theo description
+            String authorName,
+            List<String> tags,
+            Integer genreId,
             int page,
             int size,
-            String sort // "trending", "views", "topRated", "newest"
+            String sort
     ) {
         int offset = (page - 1) * size;
 
-        Condition condition = BOOK.GENRE_ID.eq(genreId)
-                .and(BookConditions.discoverableStatus());
+        Condition condition = BookConditions.discoverableStatus();
 
-        SortField<?> orderField;
+        if (titleKw != null && !titleKw.trim().isEmpty()) {
+            condition = condition.and(BOOK.TITLE.likeIgnoreCase("%" + titleKw.trim() + "%"));
+        }
+
+        if (descKw != null && !descKw.trim().isEmpty()) {
+            condition = condition.and(BOOK.DESCRIPTION.likeIgnoreCase("%" + descKw.trim() + "%"));
+        }
+
+        if (authorName != null && !authorName.isBlank()) {
+            condition = condition.and(ACCOUNT.DISPLAY_NAME.likeIgnoreCase("%" + authorName.trim() + "%"));
+        }
+
+        if (genreId != null) {
+            condition = condition.and(BOOK.GENRE_ID.eq(genreId));
+        }
+
+        if (tags != null && !tags.isEmpty()) {
+            condition = condition.andExists(
+                    dsl.selectOne()
+                            .from(BOOK_TAG)
+                            .join(TAG).on(TAG.TAG_ID.eq(BOOK_TAG.TAG_ID))
+                            .where(BOOK_TAG.BOOK_ID.eq(BOOK.BOOK_ID))
+                            .and(TAG.NAME.in(tags))
+            );
+        }
 
         var query = dsl.select(
                 BOOK.BOOK_ID.as("bookId"),
                 BOOK.TITLE.as("title"),
                 BOOK.COVER_IMAGE_URL.as("coverImageURL"),
-                DSL.coalesce(BOOK_STATS.TOTAL_VIEW, DSL.inline(0)).as("totalView"),
-                DSL.coalesce(BOOK_STATS.TOTAL_RATING, DSL.inline(0)).as("totalRating"),
-                DSL.coalesce(BOOK_STATS.AVG_RATING, DSL.inline(0.0)).as("avgRating")
+                DSL.coalesce(BOOK_STATS.TOTAL_VIEW, 0).as("totalView"),
+                DSL.coalesce(BOOK_STATS.TOTAL_RATING, 0).as("totalRating"),
+                DSL.coalesce(BOOK_STATS.AVG_RATING, 0.0).as("avgRating")
         )
                 .from(BOOK)
-                .leftJoin(BOOK_STATS).on(BOOK.BOOK_ID.eq(BOOK_STATS.BOOK_ID));
+                .leftJoin(BOOK_STATS).on(BOOK.BOOK_ID.eq(BOOK_STATS.BOOK_ID))
+                .join(ACCOUNT).on(ACCOUNT.ACCOUNT_ID.eq(BOOK.AUTHOR_ACCOUNT_ID));
 
+        SortField<?> orderField;
         switch (sort != null ? sort.toLowerCase() : "") {
             case "views":
-                orderField = BOOK_STATS.TOTAL_VIEW.desc();
+                orderField = DSL.coalesce(BOOK_STATS.TOTAL_VIEW, 0).desc();
                 break;
 
             case "toprated":
@@ -307,7 +279,7 @@ public class BookRepository {
                         .mul(BOOK_STATS.AVG_RATING)
                         .plus(DSL.inline((double) m).mul(globalAvg))
                         .divide(BOOK_STATS.TOTAL_RATING.cast(Double.class).plus((double) m));
-                orderField = bayesScore.desc();
+                orderField = DSL.coalesce(bayesScore, 0.0).desc();
                 break;
 
             case "newest":
@@ -316,13 +288,20 @@ public class BookRepository {
 
             case "trending":
             default:
-                orderField = BOOK_STATS.TOTAL_VIEW_7D.desc();
+                orderField = DSL.coalesce(BOOK_STATS.TOTAL_VIEW_7D, 0).desc();
                 break;
+        }
+
+        List<SortField<?>> orderFields = new ArrayList<>();
+        orderFields.add(orderField);
+
+        if ("newest".equalsIgnoreCase(sort)) {
+            orderFields.add(BOOK.BOOK_ID.desc());
         }
 
         List<BookSummaryDTO> items = query
                 .where(condition)
-                .orderBy(orderField, BOOK.BOOK_ID.desc())
+                .orderBy(orderFields)
                 .limit(size)
                 .offset(offset)
                 .fetchInto(BookSummaryDTO.class);
@@ -333,6 +312,7 @@ public class BookRepository {
             long cnt = dsl.fetchCount(
                     dsl.select(BOOK.BOOK_ID)
                             .from(BOOK)
+                            .join(ACCOUNT).on(ACCOUNT.ACCOUNT_ID.eq(BOOK.AUTHOR_ACCOUNT_ID))
                             .where(condition)
             );
             total = cnt;
@@ -517,7 +497,7 @@ public class BookRepository {
                 .fetch(CHAPTER.CHAPTER_ID);
 
         for (Integer chapterId : chapterIds) {
-            chapterRepository.softDeleteChapter(chapterId);
+            chapterRepository.softDeleteChapter(authorId, chapterId);
         }
     }
 }

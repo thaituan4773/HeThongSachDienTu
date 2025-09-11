@@ -17,4 +17,5 @@ public class ReplyDTO {
     OffsetDateTime createdAt;
     Boolean likedByCurrentUser;
     int parentCommentId;
+    boolean isEdited;
 }

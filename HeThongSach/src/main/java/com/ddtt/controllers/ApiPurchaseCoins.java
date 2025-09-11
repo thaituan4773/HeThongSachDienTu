@@ -1,21 +1,21 @@
 package com.ddtt.controllers;
 
-import com.ddtt.dtos.PurchaseCoinsDTO;
+import com.ddtt.dtos.PageResponseDTO;
+import com.ddtt.dtos.PurchaseHistoryDTO;
 import com.ddtt.services.PurchaseCoinsService;
 import io.micronaut.http.HttpResponse;
 import io.micronaut.http.MediaType;
 import io.micronaut.http.annotation.Body;
 import io.micronaut.http.annotation.Controller;
 import io.micronaut.http.annotation.Get;
-import io.micronaut.http.annotation.PathVariable;
 import io.micronaut.http.annotation.Post;
 import io.micronaut.http.annotation.QueryValue;
 import io.micronaut.security.authentication.Authentication;
+import jakarta.validation.constraints.Min;
 import jakarta.validation.constraints.NotEmpty;
 import java.io.IOException;
 import java.security.InvalidKeyException;
 import java.security.NoSuchAlgorithmException;
-import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 import lombok.RequiredArgsConstructor;
@@ -26,7 +26,7 @@ import org.reactivestreams.Publisher;
 public class ApiPurchaseCoins {
 
     private final PurchaseCoinsService purchaseCoinsService;
-    private final String DEEPLINK = "mystore://coinstore";
+    private final String DEEPLINK = "mystore://CoinStore";
 
     @Post("/payments")
     public Publisher<Map<String, Object>> checkout(
@@ -38,22 +38,19 @@ public class ApiPurchaseCoins {
         return purchaseCoinsService.createTransaction(accountId, coinPackId, paymentMethod);
     }
 
-    @Post("/payments/momo/ipn")
-    public HttpResponse<String> receiveIpn(@Body Map<String, Object> payload)
-            throws InvalidKeyException, NoSuchAlgorithmException {
-        purchaseCoinsService.verifyPayment(payload);
-        return HttpResponse.noContent();
-    }
-    
-    @Get("/payments")
-    public HttpResponse<List<PurchaseCoinsDTO>> getTransactionHistory(Authentication authentication) {
+    @Get("/me/coin-purchases")
+    public HttpResponse<PageResponseDTO<PurchaseHistoryDTO>> getCoinSpentHistory(
+            Authentication authentication,
+            @QueryValue(value = "page", defaultValue = "1") @Min(value = 1, message = "page phải >= 1") int page
+    ) {
         int accountId = (Integer) authentication.getAttributes().get("accountId");
-        return HttpResponse.ok(purchaseCoinsService.findByAccountId(accountId));
+        return HttpResponse.ok(purchaseCoinsService.getPurchaseHistory(accountId, page));
     }
 
     @Get("/payments/result")
-    public HttpResponse<String> result(@QueryValue UUID orderId) {
-        String status = purchaseCoinsService.getTransactionStatus(orderId); // SUCCESS / FAILED
+    public HttpResponse<String> result(@QueryValue("orderId") UUID orderId, @QueryValue("resultCode") int resultCode) {
+        String status = (resultCode == 0) ? "SUCCESS" : "FAILED";
+        purchaseCoinsService.updateStatus(orderId, status);
         if ("SUCCESS".equalsIgnoreCase(status)) {
             return HttpResponse.ok(successHtml()).contentType(MediaType.TEXT_HTML);
         } else {

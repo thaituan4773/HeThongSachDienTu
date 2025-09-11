@@ -53,9 +53,6 @@ public class ChapterService {
     }
 
     public void updateChapter(int accountId, int chapterId, ChapterUpdateDTO dto) {
-        if (dto.getPosition() == null) {
-            dto.setPosition(-1);
-        }
         chapterRepository.updateChapter(accountId, chapterId, dto);
     }
 
@@ -73,5 +70,9 @@ public class ChapterService {
     
     public void updateReadingProgress(int accountId, int chapterId, BigDecimal progressPercent){
         chapterRepository.updateReadingProgress(accountId, chapterId, progressPercent);
+    }
+    
+    public void softDeleteChapter(int accountId, int chapterId){
+        chapterRepository.softDeleteChapter(accountId, chapterId);
     }
 }

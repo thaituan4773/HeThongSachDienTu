@@ -16,4 +16,5 @@ public class CommentDTO {
     OffsetDateTime createdAt;
     int replyCount;
     Boolean likedByCurrentUser; // true = like, false = dislike, null = chưa tương tác
+    boolean isEdited;
 }

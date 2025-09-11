@@ -39,7 +39,6 @@ public class BookService {
         return new CategoryDTO("trending", "Thịnh hành", books);
     }
 
-    @Cacheable("category-preview-newest")
     public CategoryDTO findNewestBooks() {
         List<BookDTO> books = bookRepository.findNewestBooks(limit);
         return new CategoryDTO("newest", "Mới nhất", books);
@@ -69,16 +68,20 @@ public class BookService {
     public BookFullDetailDTO getBookDetail(int bookId, int accountId) {
         return bookRepository.getBookFullDetail(bookId, accountId);
     }
-
-    public PageResponseDTO<BookSummaryDTO> searchBooks(String kw, int page) {
-        return bookRepository.searchBooks(kw, page, pageSize);
-    }
-
-    public PageResponseDTO<BookSummaryDTO> findBooksByGenrePaged(int genreId, int page, String sort) {
+    
+    public PageResponseDTO<BookSummaryDTO> searchOrFilterBooks(
+            String titleKw, // tìm theo title
+            String descKw, // tìm theo description
+            String authorName,
+            List<String> tags,
+            Integer genreId,
+            int page,
+            String sort
+    ) {
         if (sort == null || sort.isBlank()) {
             sort = "trending";
         }
-        return bookRepository.getBooksByGenrePaged(genreId, page, pageSize, sort);
+        return bookRepository.searchOrFilterBooks(titleKw, descKw, authorName, tags, genreId, page, pageSize, sort);
     }
 
     public PageResponseDTO<BookSummaryDTO> findBooksByAuthorPaged(int authorId, int page) {

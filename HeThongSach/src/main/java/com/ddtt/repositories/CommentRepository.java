@@ -11,11 +11,10 @@ import static com.ddtt.jooq.generated.tables.Comment.COMMENT;
 import static com.ddtt.jooq.generated.tables.Account.ACCOUNT;
 import static com.ddtt.jooq.generated.tables.CommentLike.COMMENT_LIKE;
 import com.ddtt.jooq.generated.tables.Comment;
-import jakarta.transaction.Transactional;
+import java.time.OffsetDateTime;
 import java.util.List;
 import org.jooq.Condition;
 import org.jooq.SortField;
-import org.jooq.UpdateQuery;
 import org.jooq.impl.DSL;
 
 @Singleton
@@ -64,7 +63,10 @@ public class CommentRepository {
                         .from(child)
                         .where(child.PARENT_COMMENT_ID.eq(COMMENT.COMMENT_ID))
                         .asField("replyCount"),
-                COMMENT_LIKE.IS_LIKE.as("likedByCurrentUser")
+                COMMENT_LIKE.IS_LIKE.as("likedByCurrentUser"),
+                DSL.when(COMMENT.UPDATED_AT.isNotNull(), DSL.inline(true))
+                        .otherwise(DSL.inline(false))
+                        .as("isEdited")
         )
                 .from(COMMENT)
                 .leftJoin(ACCOUNT).on(COMMENT.ACCOUNT_ID.eq(ACCOUNT.ACCOUNT_ID))
@@ -98,7 +100,10 @@ public class CommentRepository {
                 COMMENT.SCORE.as("score"),
                 COMMENT.CREATED_AT.as("createdAt"),
                 COMMENT_LIKE.IS_LIKE.as("likedByCurrentUser"),
-                COMMENT.PARENT_COMMENT_ID.as("parentCommentId")
+                COMMENT.PARENT_COMMENT_ID.as("parentCommentId"),
+                DSL.when(COMMENT.UPDATED_AT.isNotNull(), DSL.inline(true))
+                        .otherwise(DSL.inline(false))
+                        .as("isEdited")
         )
                 .from(COMMENT)
                 .leftJoin(ACCOUNT).on(COMMENT.ACCOUNT_ID.eq(ACCOUNT.ACCOUNT_ID))
@@ -153,7 +158,8 @@ public class CommentRepository {
                 record.getScore(),
                 record.getCreatedAt(),
                 0, // replyCount
-                null // likedByCurrentUser
+                null, // likedByCurrentUser
+                false // isEdited
         );
     }
 
@@ -209,7 +215,8 @@ public class CommentRepository {
                 record.getScore(),
                 record.getCreatedAt(),
                 null, // likedByCurrentUser
-                record.getParentCommentId()
+                record.getParentCommentId(),
+                false // isEdited
         );
     }
 
@@ -229,6 +236,7 @@ public class CommentRepository {
     public String updateCommentContent(int accountId, int commentId, String newContent) {
         int updated = dsl.update(COMMENT)
                 .set(COMMENT.CONTENT, newContent)
+                .set(COMMENT.UPDATED_AT, OffsetDateTime.now())
                 .where(COMMENT.COMMENT_ID.eq(commentId))
                 .and(COMMENT.ACCOUNT_ID.eq(accountId))
                 .execute();

@@ -1,9 +1,12 @@
 package com.ddtt.services;
 
 import com.ddtt.dtos.CoinPackDTO;
+import com.ddtt.dtos.PageResponseDTO;
 import com.ddtt.dtos.PurchaseCoinsDTO;
+import com.ddtt.dtos.PurchaseHistoryDTO;
 import com.ddtt.exceptions.NotFoundException;
 import com.ddtt.repositories.PurchaseCoinsRepository;
+import io.micronaut.core.async.publisher.Publishers;
 import jakarta.inject.Singleton;
 import java.io.IOException;
 import java.security.InvalidKeyException;
@@ -36,8 +39,8 @@ public class PurchaseCoinsService {
         }
         return dto;
     }
-    
-    public List<PurchaseCoinsDTO> findByAccountId(int accountId){
+
+    public List<PurchaseCoinsDTO> findByAccountId(int accountId) {
         return purchaseCoinsRepository.findByAccountId(accountId);
     }
 
@@ -46,7 +49,7 @@ public class PurchaseCoinsService {
         if (!momoService.verifyResponseSignature(payload)) {
             throw new IllegalStateException("Chữ ký momo không hợp lệ");
         }
-        
+
         UUID transactionId = UUID.fromString(String.valueOf(payload.get("orderId")));
         PurchaseCoinsDTO transaction = purchaseCoinsRepository.findByTransactionId(transactionId);
         if (transaction == null) {
@@ -59,11 +62,15 @@ public class PurchaseCoinsService {
         if (amountFromDb != amountFromMoMo) {
             throw new IllegalStateException("Thông tin giao dịch không hợp lệ: " + transactionId);
         }
-        
+
         int resultCode = ((Number) payload.get("resultCode")).intValue();
         String newStatus = (resultCode == 0) ? "SUCCESS" : "FAILED";
         purchaseCoinsRepository.updateStatus(transactionId, newStatus);
         return true;
+    }
+    
+    public void updateStatus(UUID transactionId, String newStatus){
+        purchaseCoinsRepository.updateStatus(transactionId, newStatus);
     }
 
     public String getTransactionStatus(UUID transactionId) {
@@ -73,5 +80,10 @@ public class PurchaseCoinsService {
         }
 
         return purchase.getStatus();
+    }
+
+    public PageResponseDTO<PurchaseHistoryDTO> getPurchaseHistory(int accountId, int page) {
+        int size = 50;
+        return purchaseCoinsRepository.getPurchaseHistoryPaged(accountId, page, size);
     }
 }

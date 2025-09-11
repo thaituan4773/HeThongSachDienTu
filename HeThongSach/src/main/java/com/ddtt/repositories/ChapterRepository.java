@@ -97,9 +97,14 @@ public class ChapterRepository {
                 DSL.selectCount()
                         .from(COMMENT)
                         .where(COMMENT.CHAPTER_ID.eq(currentChapter.CHAPTER_ID))
-                        .asField("commentCount")
+                        .asField("commentCount"),
+                READING_PROGRESS.PROGRESS_PERCENT.as("progressPercent")
         )
                 .from(currentChapter)
+                .leftJoin(READING_PROGRESS)
+                .on(READING_PROGRESS.ACCOUNT_ID.eq(accountId)
+                        .and(READING_PROGRESS.BOOK_ID.eq(currentChapter.BOOK_ID)))
+                .and(READING_PROGRESS.CURRENT_CHAPTER_ID.eq(currentChapter.CHAPTER_ID))
                 .where(currentChapter.CHAPTER_ID.eq(chapterId))
                 .fetchOneInto(ChapterContentDTO.class);
         recordView(chapterId, accountId);
@@ -124,29 +129,9 @@ public class ChapterRepository {
         Integer maxPosition = dsl.select(DSL.max(CHAPTER.POSITION))
                 .from(CHAPTER)
                 .where(CHAPTER.BOOK_ID.eq(bookId))
-                .and(CHAPTER.DELETED_AT.isNull())
                 .fetchOneInto(Integer.class);
 
-        Integer requestedPosition = dto.getPosition();
-        int newPosition;
-
-        if (requestedPosition == null) {
-            // Nếu không truyền position thì luôn chèn cuối
-            newPosition = (maxPosition == null) ? 1 : maxPosition + 1;
-        } else if (maxPosition == null) {
-            newPosition = 1;
-        } else if (requestedPosition > maxPosition + 1) {
-            // Nếu position vượt quá thì cho về cuối
-            newPosition = maxPosition + 1;
-        } else {
-            // Dịch chuyển các chương phía sau
-            dsl.update(CHAPTER)
-                    .set(CHAPTER.POSITION, CHAPTER.POSITION.plus(1))
-                    .where(CHAPTER.BOOK_ID.eq(bookId))
-                    .and(CHAPTER.POSITION.ge(requestedPosition))
-                    .execute();
-            newPosition = requestedPosition;
-        }
+        int newPosition = (maxPosition == null) ? 1 : maxPosition + 1; // luôn chèn cuối
 
         // Thêm chương mới
         dsl.insertInto(CHAPTER)
@@ -241,7 +226,7 @@ public class ChapterRepository {
                         .and(BOOK.AUTHOR_ACCOUNT_ID.eq(accountId))
         );
 
-        Condition condition = CHAPTER.BOOK_ID.eq(bookId);
+        Condition condition = CHAPTER.BOOK_ID.eq(bookId).and(CHAPTER.DELETED_AT.isNull());
         if (!isAuthor) {
             condition = condition.and(ChapterConditions.isPublished());
         }
@@ -335,73 +320,7 @@ public class ChapterRepository {
             throw new IllegalArgumentException("Sách không tồn tại hoặc không thuộc về tác giả");
         }
 
-        // Lấy thông tin chapter hiện tại
-        var chapterRecord = dsl.select(CHAPTER.BOOK_ID, CHAPTER.POSITION)
-                .from(CHAPTER)
-                .where(CHAPTER.CHAPTER_ID.eq(chapterId))
-                .fetchOne();
-
-        if (chapterRecord == null) {
-            throw new NotFoundException("Chapter không tồn tại");
-        }
-
-        int bookId = chapterRecord.get(CHAPTER.BOOK_ID);
-        int currentPos = chapterRecord.get(CHAPTER.POSITION);
-        int requestedPos = dto.getPosition(); // luôn có giá trị
-
-        // Lấy max position hiện tại (trong các chapter chưa xóa)
-        Integer maxPosition = dsl.select(DSL.max(CHAPTER.POSITION))
-                .from(CHAPTER)
-                .where(CHAPTER.BOOK_ID.eq(bookId))
-                .and(CHAPTER.DELETED_AT.isNull())
-                .fetchOneInto(Integer.class);
-
-        // Chuẩn hoá newPosition
-        int newPosition;
-        if (maxPosition == null) {
-            newPosition = 1; // chỉ có chính nó
-        } else if (requestedPos == -1 || requestedPos > maxPosition) {
-            newPosition = maxPosition; // -1 nghĩa là đưa xuống cuối
-        } else if (requestedPos < 1) {
-            newPosition = 1;
-        } else {
-            newPosition = requestedPos;
-        }
-
-        if (newPosition != currentPos) {
-            // 1) Tạm đặt ra ngoài range
-            dsl.update(CHAPTER)
-                    .set(CHAPTER.POSITION, DSL.inline(-1))
-                    .where(CHAPTER.CHAPTER_ID.eq(chapterId))
-                    .execute();
-
-            // 2) Dịch chuyển các chapter khác
-            if (newPosition < currentPos) {
-                // move up
-                dsl.update(CHAPTER)
-                        .set(CHAPTER.POSITION, CHAPTER.POSITION.plus(1))
-                        .where(CHAPTER.BOOK_ID.eq(bookId))
-                        .and(CHAPTER.POSITION.ge(newPosition))
-                        .and(CHAPTER.POSITION.lt(currentPos))
-                        .execute();
-            } else {
-                // move down
-                dsl.update(CHAPTER)
-                        .set(CHAPTER.POSITION, CHAPTER.POSITION.minus(1))
-                        .where(CHAPTER.BOOK_ID.eq(bookId))
-                        .and(CHAPTER.POSITION.le(newPosition))
-                        .and(CHAPTER.POSITION.gt(currentPos))
-                        .execute();
-            }
-
-            // 3) Gán lại position mới
-            dsl.update(CHAPTER)
-                    .set(CHAPTER.POSITION, newPosition)
-                    .where(CHAPTER.CHAPTER_ID.eq(chapterId))
-                    .execute();
-        }
-        dto.setPosition(newPosition);
-        // Update các field khác
+        // Chỉ update các trường cho phép
         UpdateQuery<?> uq = dsl.updateQuery(CHAPTER);
 
         if (dto.getTitle() != null) {
@@ -409,9 +328,6 @@ public class ChapterRepository {
         }
         if (dto.getContent() != null) {
             uq.addValue(CHAPTER.CONTENT, dto.getContent());
-        }
-        if (dto.getPosition() != null) {
-            uq.addValue(CHAPTER.POSITION, dto.getPosition());
         }
         if (dto.getCoinPrice() != null) {
             uq.addValue(CHAPTER.COIN_PRICE, dto.getCoinPrice());
@@ -429,16 +345,46 @@ public class ChapterRepository {
     }
 
     @Transactional
-    public void softDeleteChapter(int chapterId) {
+    public void softDeleteChapter(int accountId, int chapterId) {
         OffsetDateTime now = OffsetDateTime.now();
 
-        int updated = dsl.update(CHAPTER)
+        var chapter = dsl.select(CHAPTER.CHAPTER_ID, CHAPTER.POSITION, CHAPTER.BOOK_ID)
+            .from(CHAPTER)
+            .join(BOOK).on(CHAPTER.BOOK_ID.eq(BOOK.BOOK_ID))
+            .where(CHAPTER.CHAPTER_ID.eq(chapterId))
+            .and(BOOK.AUTHOR_ACCOUNT_ID.eq(accountId))
+            .and(BOOK.DELETED_AT.isNull())
+            .fetchOne();
+
+        if (chapter == null) {
+            throw new NotFoundException("Chapter không tồn tại hoặc không có quyền");
+        }
+
+        int position = chapter.get(CHAPTER.POSITION);
+        int offset = position - 1;
+        int bookId = chapter.get(CHAPTER.BOOK_ID);
+
+        dsl.update(CHAPTER)
                 .set(CHAPTER.DELETED_AT, now)
                 .where(CHAPTER.CHAPTER_ID.eq(chapterId))
                 .execute();
-        if (updated == 0) {
-            throw new IllegalArgumentException("Chapter không tồn tại");
-        }
+
+        dsl.update(READING_PROGRESS)
+                .set(READING_PROGRESS.CURRENT_CHAPTER_ID, (Integer) null)
+                .where(READING_PROGRESS.CURRENT_CHAPTER_ID.eq(chapterId))
+                .execute();
+
+        dsl.update(READING_PROGRESS)
+                .set(READING_PROGRESS.READ_CHAPTERS_BITMAP,
+                        DSL.function("set_bit", byte[].class,
+                                DSL.coalesce(READING_PROGRESS.READ_CHAPTERS_BITMAP, DSL.inline(new byte[]{0})),
+                                DSL.val(offset),
+                                DSL.inline(0)
+                        )
+                )
+                .where(READING_PROGRESS.BOOK_ID.eq(bookId))
+                .execute();
+
         dsl.deleteFrom(COMMENT)
                 .where(COMMENT.CHAPTER_ID.eq(chapterId))
                 .execute();
@@ -467,7 +413,6 @@ public class ChapterRepository {
         return dsl.select(
                 CHAPTER.CHAPTER_ID.as("chapterId"),
                 CHAPTER.TITLE.as("title"),
-                CHAPTER.POSITION.as("position"),
                 CHAPTER.COIN_PRICE.as("coinPrice"),
                 CHAPTER.CREATED_AT.as("createdDate"),
                 CHAPTER.STATUS.as("status")

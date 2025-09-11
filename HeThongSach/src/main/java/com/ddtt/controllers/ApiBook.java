@@ -54,20 +54,25 @@ public class ApiBook {
     }
 
     @Get("/books/search")
-    public PageResponseDTO<BookSummaryDTO> searchBooks(
-            @Nullable @QueryValue("kw") @Size(max = 200, message = "Keyword quá dài (tối đa 200 ký tự)") String kw,
-            @QueryValue(value = "page", defaultValue = "1") @Min(value = 1, message = "page phải >= 1") int page
+    public HttpResponse<PageResponseDTO<BookSummaryDTO>> searchBooks(
+            @Nullable @QueryValue("titleKw") @Size(max = 300) String titleKw,
+            @Nullable @QueryValue("descKw") @Size(max = 500) String descKw,
+            @Nullable @QueryValue("authorName") @Size(max = 100) String authorName,
+            @Nullable @QueryValue("tags") List<String> tags,
+            @Nullable @QueryValue("genreId") Integer genreId,
+            @QueryValue(value = "page", defaultValue = "1") @Min(1) int page,
+            @Nullable @QueryValue("sort") String sort
     ) {
-        return bookService.searchBooks(kw, page);
-    }
-
-    @Get("/genre/{genreId}/books")
-    public HttpResponse<PageResponseDTO<BookSummaryDTO>> getBookByGenre(
-            @PathVariable int genreId,
-            @Nullable @QueryValue("sortMode") String sort, // "trending", "views", "topRated", "newest"
-            @QueryValue(value = "page", defaultValue = "1") @Min(value = 1, message = "page phải >= 1") int page
-    ) {
-        return HttpResponse.ok(bookService.findBooksByGenrePaged(genreId, page, sort));
+        PageResponseDTO<BookSummaryDTO> result = bookService.searchOrFilterBooks(
+                titleKw,
+                descKw,
+                authorName,
+                tags,
+                genreId,
+                page,
+                sort
+        );
+        return HttpResponse.ok(result);
     }
 
     @Patch(value = "/books/{bookId}", consumes = "multipart/form-data")
