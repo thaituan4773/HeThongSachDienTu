@@ -26,7 +26,7 @@ public class RecommendationService {
     private final double beta = 0.3; // weight của tag
     private final double explorationRate = 0.1;
 
-    public CategoryDTO recommendBooksForUserWithTags(int userId) {
+    public CategoryDTO recommendBooksForUser(int userId) {
 
         Map<Integer, Integer> genreCounts = genreRepository.countGenresByUser(userId, 30);
         Map<Integer, Integer> tagCounts = tagRepository.countTagsByUser(userId, 30);

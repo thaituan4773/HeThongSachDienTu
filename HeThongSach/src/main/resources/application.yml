@@ -10,6 +10,12 @@ micronaut:
       - pattern: /api/resend
         access:
           - isAnonymous()
+      - pattern: /api/forgot-password/**
+        access:
+          - isAnonymous()
+      - pattern: /api/change-email/**
+        access:
+          - isAnonymous()
       - pattern: /api/payments/*/ipn
         access:
           - isAnonymous()

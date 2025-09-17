@@ -5,6 +5,7 @@ import com.ddtt.dtos.ChapterEditDTO;
 import com.ddtt.dtos.ChapterInputDTO;
 import com.ddtt.dtos.ChapterOverviewDTO;
 import com.ddtt.dtos.ChapterUpdateDTO;
+import com.ddtt.dtos.CurrentReadingDTO;
 import com.ddtt.dtos.PageResponseDTO;
 import com.ddtt.services.ChapterService;
 import io.micronaut.http.HttpResponse;
@@ -126,6 +127,42 @@ public class ApiChapter {
     ) {
         int accountId = (Integer) authentication.getAttributes().get("accountId");
         chapterService.softDeleteChapter(accountId, chapterId);
+        return HttpResponse.noContent();
+    }
+    
+    @Get("/reading-books")
+    public HttpResponse<List<CurrentReadingDTO>> getReadingBooks(Authentication authentication) {
+        int accountId = (Integer) authentication.getAttributes().get("accountId");
+        return HttpResponse.ok(chapterService.getCurrentlyReadingBooks(accountId));
+    }
+    
+    @Delete("/reading-books")
+    public HttpResponse clearReadingBooks(
+            Authentication authentication,
+            @Body("bookIds") List<Integer> bookIds
+    ) {
+        int accountId = (Integer) authentication.getAttributes().get("accountId");
+        chapterService.clearReadingProgress(accountId, bookIds);
+        return HttpResponse.noContent();
+    }
+    
+    @Post("/chapters/mark")
+    public HttpResponse markChapters(
+            Authentication authentication,
+            @Body("chapterIds") List<Integer> chapterIds
+    ) {
+        int accountId = (Integer) authentication.getAttributes().get("accountId");
+        chapterService.markChaptersAsRead(accountId, chapterIds);
+        return HttpResponse.ok();
+    }
+    
+    @Delete("/chapters/mark")
+    public HttpResponse unMarkChapters(
+            Authentication authentication,
+            @Body("chapterIds") List<Integer> chapterIds
+    ) {
+        int accountId = (Integer) authentication.getAttributes().get("accountId");
+        chapterService.unmarkChaptersAsRead(accountId, chapterIds);
         return HttpResponse.noContent();
     }
 

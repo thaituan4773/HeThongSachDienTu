@@ -5,6 +5,7 @@ import com.ddtt.dtos.ChapterEditDTO;
 import com.ddtt.dtos.ChapterInputDTO;
 import com.ddtt.dtos.ChapterOverviewDTO;
 import com.ddtt.dtos.ChapterUpdateDTO;
+import com.ddtt.dtos.CurrentReadingDTO;
 import com.ddtt.dtos.PageResponseDTO;
 import com.ddtt.exceptions.ForbiddenException;
 import com.ddtt.repositories.ChapterRepository;
@@ -74,5 +75,21 @@ public class ChapterService {
     
     public void softDeleteChapter(int accountId, int chapterId){
         chapterRepository.softDeleteChapter(accountId, chapterId);
+    }
+    
+    public void markChaptersAsRead(int accountId, List<Integer> chapterIds){
+        chapterRepository.markChaptersAsRead(accountId, chapterIds);
+    }
+    
+    public void unmarkChaptersAsRead(int accountId, List<Integer> chapterIds) {
+        chapterRepository.unmarkChaptersAsRead(accountId, chapterIds);
+    }
+    
+    public void clearReadingProgress(int accountId, List<Integer> bookIds) {
+        chapterRepository.clearReadingProgress(accountId, bookIds);
+    }
+    
+    public List<CurrentReadingDTO> getCurrentlyReadingBooks(int accountId) {
+        return chapterRepository.getCurrentlyReadingBooks(accountId);
     }
 }

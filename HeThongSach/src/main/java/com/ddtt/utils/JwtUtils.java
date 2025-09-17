@@ -1,6 +1,5 @@
 package com.ddtt.utils;
 
-import com.ddtt.services.AccountService;
 import com.nimbusds.jose.JWSAlgorithm;
 import com.nimbusds.jose.JWSHeader;
 import com.nimbusds.jose.JWSSigner;
@@ -11,13 +10,12 @@ import com.nimbusds.jwt.JWTClaimsSet;
 import com.nimbusds.jwt.SignedJWT;
 import io.micronaut.context.annotation.Value;
 import jakarta.inject.Singleton;
-import java.util.Date;
+import java.util.UUID;
 
 @Singleton
 public class JwtUtils {
 
     private final String emailSecret;
-    private final long emailExpirationMs;
     private final String loginSecret;
     private final long loginExpirationMs;
     private final long refreshExpirationMs;
@@ -25,13 +23,11 @@ public class JwtUtils {
 
     public JwtUtils(
         @Value("${app.verification.email.secret}") String emailSecret,
-        @Value("${app.verification.email.expiration}") long emailExpirationMs,
         @Value("${app.verification.login.secret}") String loginSecret,
         @Value("${app.verification.login.expiration}") long loginExpirationMs,
         @Value("${app.verification.login.refreshExpiration}") long refreshExpirationMs
     ) {
         this.emailSecret = emailSecret;
-        this.emailExpirationMs = emailExpirationMs;
         this.loginSecret = loginSecret;
         this.loginExpirationMs = loginExpirationMs;
         this.refreshExpirationMs = refreshExpirationMs;
@@ -42,6 +38,7 @@ public class JwtUtils {
 
         JWTClaimsSet claimsSet = new JWTClaimsSet.Builder()
                 .subject(email)
+                .claim("jti", UUID.randomUUID().toString())
                 .build();
 
         SignedJWT signedJWT = new SignedJWT(
@@ -67,6 +64,7 @@ public class JwtUtils {
 
         JWTClaimsSet claimsSet = new JWTClaimsSet.Builder()
                 .subject(email)
+                .claim("jti", UUID.randomUUID().toString())
                 .claim("accountId", accountId)
                 .build();
 
@@ -96,6 +94,7 @@ public class JwtUtils {
         JWTClaimsSet claimsSet = new JWTClaimsSet.Builder()
                 .subject(email)
                 .claim("type", "refresh")
+                .claim("jti", UUID.randomUUID().toString())
                 .build();
 
         SignedJWT signedJWT = new SignedJWT(

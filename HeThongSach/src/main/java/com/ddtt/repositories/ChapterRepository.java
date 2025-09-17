@@ -5,6 +5,7 @@ import com.ddtt.dtos.ChapterEditDTO;
 import com.ddtt.dtos.ChapterInputDTO;
 import com.ddtt.dtos.ChapterOverviewDTO;
 import com.ddtt.dtos.ChapterUpdateDTO;
+import com.ddtt.dtos.CurrentReadingDTO;
 import com.ddtt.dtos.PageResponseDTO;
 import com.ddtt.exceptions.DuplicateException;
 import com.ddtt.exceptions.NotFoundException;
@@ -19,6 +20,7 @@ import static com.ddtt.jooq.generated.tables.BookView.BOOK_VIEW;
 import static com.ddtt.jooq.generated.tables.Chapter.CHAPTER;
 import static com.ddtt.jooq.generated.tables.Account.ACCOUNT;
 import static com.ddtt.jooq.generated.tables.Book.BOOK;
+import com.ddtt.repository.conditions.BookConditions;
 import com.ddtt.repository.conditions.ChapterConditions;
 import io.micronaut.core.annotation.Blocking;
 import jakarta.transaction.Transactional;
@@ -349,12 +351,12 @@ public class ChapterRepository {
         OffsetDateTime now = OffsetDateTime.now();
 
         var chapter = dsl.select(CHAPTER.CHAPTER_ID, CHAPTER.POSITION, CHAPTER.BOOK_ID)
-            .from(CHAPTER)
-            .join(BOOK).on(CHAPTER.BOOK_ID.eq(BOOK.BOOK_ID))
-            .where(CHAPTER.CHAPTER_ID.eq(chapterId))
-            .and(BOOK.AUTHOR_ACCOUNT_ID.eq(accountId))
-            .and(BOOK.DELETED_AT.isNull())
-            .fetchOne();
+                .from(CHAPTER)
+                .join(BOOK).on(CHAPTER.BOOK_ID.eq(BOOK.BOOK_ID))
+                .where(CHAPTER.CHAPTER_ID.eq(chapterId))
+                .and(BOOK.AUTHOR_ACCOUNT_ID.eq(accountId))
+                .and(BOOK.DELETED_AT.isNull())
+                .fetchOne();
 
         if (chapter == null) {
             throw new NotFoundException("Chapter không tồn tại hoặc không có quyền");
@@ -476,6 +478,122 @@ public class ChapterRepository {
                 .set(READING_PROGRESS.PROGRESS_PERCENT, progressPercent)
                 .set(READING_PROGRESS.LAST_UPDATED_AT, OffsetDateTime.now())
                 .execute();
+    }
+
+    public List<CurrentReadingDTO> getCurrentlyReadingBooks(int accountId) {
+        return dsl.select(
+                BOOK.BOOK_ID.as("bookId"),
+                BOOK.TITLE.as("title"),
+                BOOK.COVER_IMAGE_URL.as("coverImageURL"),
+                READING_PROGRESS.CURRENT_CHAPTER_ID.as("currentChapterId"),
+                CHAPTER.TITLE.as("chapterTitle"),
+                READING_PROGRESS.LAST_UPDATED_AT.as("lastUpdatedAt")
+        )
+                .from(READING_PROGRESS)
+                .join(BOOK).on(BOOK.BOOK_ID.eq(READING_PROGRESS.BOOK_ID))
+                .join(CHAPTER).on(CHAPTER.CHAPTER_ID.eq(READING_PROGRESS.CURRENT_CHAPTER_ID))
+                .where(READING_PROGRESS.ACCOUNT_ID.eq(accountId))
+                .and(READING_PROGRESS.CURRENT_CHAPTER_ID.isNotNull())
+                .and(READING_PROGRESS.PROGRESS_PERCENT.isNotNull())
+                .and(BookConditions.discoverableStatus())
+                .and(ChapterConditions.isPublished())
+                .orderBy(READING_PROGRESS.LAST_UPDATED_AT.desc())
+                .fetchInto(CurrentReadingDTO.class);
+    }
+
+    public void clearReadingProgress(int accountId, List<Integer> bookIds) {
+        if (bookIds == null || bookIds.isEmpty()) {
+            throw new IllegalArgumentException("Sách không tồn tại");
+        }
+
+        dsl.update(READING_PROGRESS)
+                .set(READING_PROGRESS.CURRENT_CHAPTER_ID, (Integer) null)
+                .set(READING_PROGRESS.PROGRESS_PERCENT, (BigDecimal) null)
+                .set(READING_PROGRESS.LAST_UPDATED_AT, DSL.currentOffsetDateTime())
+                .where(READING_PROGRESS.ACCOUNT_ID.eq(accountId))
+                .and(READING_PROGRESS.BOOK_ID.in(bookIds))
+                .execute();
+    }
+
+    public void unmarkChapterAsRead(int accountId, int chapterId) {
+        // Lấy bookId và position của chương
+        var chapter = dsl.select(CHAPTER.BOOK_ID, CHAPTER.POSITION)
+                .from(CHAPTER)
+                .where(CHAPTER.CHAPTER_ID.eq(chapterId))
+                .fetchOne();
+
+        if (chapter == null) {
+            throw new IllegalArgumentException("Chapter không tồn tại: " + chapterId);
+        }
+
+        int bookId = chapter.get(CHAPTER.BOOK_ID);
+        int chapterPos = chapter.get(CHAPTER.POSITION);
+        int bitIndex = chapterPos - 1; // index bắt đầu từ 0
+
+        // Cập nhật bitmap -> set_bit(..., bitIndex, 0)
+        dsl.update(READING_PROGRESS)
+                .set(READING_PROGRESS.READ_CHAPTERS_BITMAP,
+                        DSL.field(
+                                "CASE WHEN octet_length({0}) >= (({1} / 8) + 1) "
+                                + "THEN set_bit({0}, {1}, 0) ELSE {0} END",
+                                byte[].class,
+                                READING_PROGRESS.READ_CHAPTERS_BITMAP,
+                                bitIndex
+                        )
+                )
+                .set(READING_PROGRESS.LAST_UPDATED_AT, DSL.currentOffsetDateTime())
+                .where(READING_PROGRESS.ACCOUNT_ID.eq(accountId))
+                .and(READING_PROGRESS.BOOK_ID.eq(bookId))
+                .execute();
+    }
+
+    @Transactional
+    public void unmarkChaptersAsRead(int accountId, List<Integer> chapterIds) {
+        for (Integer chapterId : chapterIds) {
+            unmarkChapterAsRead(accountId, chapterId);
+        }
+    }
+
+    public void markChapterAsRead(int accountId, int chapterId) {
+        // Lấy bookId + position
+        var chapter = dsl.select(CHAPTER.BOOK_ID, CHAPTER.POSITION)
+                .from(CHAPTER)
+                .where(CHAPTER.CHAPTER_ID.eq(chapterId))
+                .fetchOne();
+
+        if (chapter == null) {
+            throw new IllegalArgumentException("Chapter không tồn tại: " + chapterId);
+        }
+
+        int bookId = chapter.get(CHAPTER.BOOK_ID);
+        int chapterPos = chapter.get(CHAPTER.POSITION);
+        int bitIndex = chapterPos - 1;
+        int bytesNeeded = (bitIndex / 8) + 1;
+
+        // Upsert vào bảng reading_progress (tạo mới nếu chưa có)
+        dsl.insertInto(READING_PROGRESS)
+                .set(READING_PROGRESS.ACCOUNT_ID, accountId)
+                .set(READING_PROGRESS.BOOK_ID, bookId)
+                .set(READING_PROGRESS.READ_CHAPTERS_BITMAP,
+                        DSL.field("set_bit(decode(repeat('00', {0}), 'hex'), {1}, 1)",
+                                byte[].class, bytesNeeded, bitIndex))
+                .set(READING_PROGRESS.LAST_UPDATED_AT, DSL.currentOffsetDateTime())
+                .onConflict(READING_PROGRESS.ACCOUNT_ID, READING_PROGRESS.BOOK_ID)
+                .doUpdate()
+                .set(READING_PROGRESS.READ_CHAPTERS_BITMAP,
+                        DSL.field(
+                                "set_bit(COALESCE(reading_progress.read_chapters_bitmap, ''::bytea) || "
+                                + "decode(repeat('00', {0} - octet_length(reading_progress.read_chapters_bitmap)), 'hex'), {1}, 1)",
+                                byte[].class, bytesNeeded, bitIndex))
+                .set(READING_PROGRESS.LAST_UPDATED_AT, DSL.currentOffsetDateTime())
+                .execute();
+    }
+
+    @Transactional
+    public void markChaptersAsRead(int accountId, List<Integer> chapterIds) {
+        for (Integer chapterId : chapterIds) {
+            markChapterAsRead(accountId, chapterId);
+        }
     }
 
 }

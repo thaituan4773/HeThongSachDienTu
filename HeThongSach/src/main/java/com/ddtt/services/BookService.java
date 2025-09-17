@@ -117,5 +117,9 @@ public class BookService {
         }
         return bookRepository.updateBook(bookId, dto, authorId);
     }
+    
+    public void softDeleteBook(int bookId, int authorId){
+        bookRepository.softDeleteBook(bookId, authorId);
+    }
 
 }

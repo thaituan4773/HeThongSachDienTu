@@ -3,15 +3,18 @@ package com.ddtt.services;
 import com.cloudinary.Cloudinary;
 import com.cloudinary.utils.ObjectUtils;
 import com.ddtt.dtos.AccountDTO;
+import com.ddtt.dtos.AccountPatchDTO;
 import com.ddtt.dtos.LoginRequestDTO;
 import com.ddtt.dtos.TokenResponseDTO;
 import com.ddtt.dtos.RegisterInfoDTO;
 import com.ddtt.jooq.generated.tables.records.AccountRecord;
 import com.ddtt.repositories.AccountRepository;
+import com.ddtt.repositories.EmailRepository;
 import com.ddtt.utils.JwtUtils;
 import io.micronaut.http.multipart.CompletedFileUpload;
 import jakarta.inject.Singleton;
 import java.io.IOException;
+import java.time.OffsetDateTime;
 import java.util.Map;
 import lombok.RequiredArgsConstructor;
 import org.mindrot.jbcrypt.BCrypt;
@@ -24,6 +27,7 @@ public class AccountService {
     private final Cloudinary cloudinary;
     private final JwtUtils jwtUtils;
     private final RefreshTokenService refreshTokenService;
+    private final EmailRepository emailRepository;
 
     public void addAccount(RegisterInfoDTO info, CompletedFileUpload file) {
         if (file != null && file.getSize() > 0) {
@@ -62,14 +66,14 @@ public class AccountService {
             );
         }
         int accountId = accountRepo.getIdByEmail(email);
-        
+
         String refreshToken = refreshTokenService.getRefreshTokenByAccountId(accountId);
-        
-        if(refreshToken == null){
+
+        if (refreshToken == null) {
             refreshToken = jwtUtils.generateRefreshToken(email);
             refreshTokenService.upsertRefreshToken(accountId, refreshToken);
         }
-            
+
         String accessToken = jwtUtils.generateTokenForLogin(email, accountId);
         return new TokenResponseDTO(
                 accessToken,
@@ -96,9 +100,49 @@ public class AccountService {
     public int getBalance(int accountId) {
         return accountRepo.getBalance(accountId);
     }
-    
-    public AccountRecord findByEmail(String email){
+
+    public AccountRecord findByEmail(String email) {
         return accountRepo.findByEmail(email);
-    } 
+    }
+
+    public void createForgotPasswordResetRequest(String email) throws Exception {
+        var account = accountRepo.findByEmail(email);
+        if (account == null) {
+            throw new SecurityException("Không tìm thấy tài khoản");
+        }
+        String token = jwtUtils.generateTokenForLogin(email, account.getAccountId());
+        OffsetDateTime expiredAt = OffsetDateTime.now().plusMinutes(30);
+        accountRepo.createForgotPWRequest(account.getAccountId(), token, expiredAt);
+        emailRepository.sendForgotPWRequest(email, token);
+    }
+
+    public void confirmForgotPasswordRequest(String token, String password) throws Exception {
+        String hashed = BCrypt.hashpw(password, BCrypt.gensalt());
+        accountRepo.confirmForgotPWRequest(token, hashed);
+    }
+
+    public void changePassword(int accountId, String oldPassword, String newPassword) {
+        
+        String currentHash = accountRepo.getPasswordHash(accountId);
+        if (!BCrypt.checkpw(oldPassword, currentHash)) {
+            throw new SecurityException("Mật khẩu cũ không chính xác");
+        }
+
+        String newHashed = BCrypt.hashpw(newPassword, BCrypt.gensalt());
+        accountRepo.changePassword(accountId, newHashed);
+    }
+    
+    public void patchAccount(int accountId, AccountPatchDTO dto, CompletedFileUpload file){
+        if (file != null && file.getSize() > 0) {
+            try {
+                Map res = cloudinary.uploader()
+                        .upload(file.getBytes(), ObjectUtils.asMap("resource_type", "auto"));
+                dto.setAvatarURL(res.get("secure_url").toString());
+            } catch (IOException ex) {
+                throw new RuntimeException("Lỗi upload ảnh lên Cloudinary", ex);
+            }
+        }
+        accountRepo.patchAccount(accountId, dto);
+    }
 
 }

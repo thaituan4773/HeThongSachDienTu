@@ -56,7 +56,7 @@ public class MOMOService {
         String requestType = "captureWallet";
         String extraData = "";
         String lang = "vi";
-        String orderInfo = "Mua gói " + packName + " (" + coinAmount + ") trị giá " + coinPrice + " VND";
+        String orderInfo = "Mua gói " + packName + " (" + coinAmount + " xu) trị giá " + coinPrice + " VND";
 
         String rawData = new StringBuilder()
                 .append("accessKey=").append(accessKey).append("&")

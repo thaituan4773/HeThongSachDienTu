@@ -7,6 +7,7 @@ import com.ddtt.dtos.BookSummaryAuthorDTO;
 import com.ddtt.dtos.BookSummaryDTO;
 import com.ddtt.dtos.PageResponseDTO;
 import com.ddtt.dtos.TagDTO;
+import com.ddtt.exceptions.NotFoundException;
 import static com.ddtt.jooq.generated.tables.Book.BOOK;
 import static com.ddtt.jooq.generated.tables.BookView.BOOK_VIEW;
 import static com.ddtt.jooq.generated.tables.Rating.RATING;
@@ -260,7 +261,8 @@ public class BookRepository {
                 BOOK.COVER_IMAGE_URL.as("coverImageURL"),
                 DSL.coalesce(BOOK_STATS.TOTAL_VIEW, 0).as("totalView"),
                 DSL.coalesce(BOOK_STATS.TOTAL_RATING, 0).as("totalRating"),
-                DSL.coalesce(BOOK_STATS.AVG_RATING, 0.0).as("avgRating")
+                DSL.coalesce(BOOK_STATS.AVG_RATING, 0.0).as("avgRating"),
+                DSL.coalesce(BOOK_STATS.TOTAL_VIEW_7D, 0).as("totalView7d")
         )
                 .from(BOOK)
                 .leftJoin(BOOK_STATS).on(BOOK.BOOK_ID.eq(BOOK_STATS.BOOK_ID))
@@ -294,6 +296,7 @@ public class BookRepository {
 
         List<SortField<?>> orderFields = new ArrayList<>();
         orderFields.add(orderField);
+        orderFields.add(BOOK.BOOK_ID.desc());
 
         if ("newest".equalsIgnoreCase(sort)) {
             orderFields.add(BOOK.BOOK_ID.desc());
@@ -471,7 +474,7 @@ public class BookRepository {
                 .execute();
 
         if (updated == 0) {
-            throw new IllegalArgumentException("Book không tồn tại hoặc không thuộc về tác giả");
+            throw new NotFoundException("Book không tồn tại hoặc không thuộc về tác giả");
         }
 
         dsl.deleteFrom(BOOK_TAG)

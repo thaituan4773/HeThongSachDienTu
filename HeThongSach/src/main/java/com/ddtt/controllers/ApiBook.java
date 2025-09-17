@@ -10,6 +10,7 @@ import com.ddtt.services.RecommendationService;
 import io.micronaut.core.annotation.Nullable;
 import io.micronaut.http.HttpResponse;
 import io.micronaut.http.annotation.Controller;
+import io.micronaut.http.annotation.Delete;
 import io.micronaut.http.annotation.PathVariable;
 import io.micronaut.http.annotation.Get;
 import io.micronaut.http.annotation.Part;
@@ -35,7 +36,7 @@ public class ApiBook {
     public HttpResponse<List<CategoryDTO>> explore(Authentication authentication) {
         List<CategoryDTO> categories = new ArrayList<>();
         int accountId = (Integer) authentication.getAttributes().get("accountId");
-        categories.add(recommendationService.recommendBooksForUserWithTags(accountId));
+        categories.add(recommendationService.recommendBooksForUser(accountId));
         categories.add(bookService.findTrendingBooks(weekly));
         categories.add(bookService.findTopRatedBooks());
         categories.add(bookService.findNewestBooks());
@@ -94,5 +95,15 @@ public class ApiBook {
         dto.setTags(tags);
         dto.setStatus(status);
         return HttpResponse.ok(bookService.updateBook(bookId, dto, accountId, coverImage));
+    }
+
+    @Delete("/books/{bookId}")
+    public HttpResponse deleteBook(
+            @PathVariable int bookId,
+            Authentication authentication
+    ) {
+        int accountId = (Integer) authentication.getAttributes().get("accountId");
+        bookService.softDeleteBook(bookId, accountId);
+        return HttpResponse.noContent();
     }
 }

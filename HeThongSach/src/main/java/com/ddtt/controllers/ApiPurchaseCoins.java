@@ -37,6 +37,13 @@ public class ApiPurchaseCoins {
         int accountId = (Integer) authentication.getAttributes().get("accountId");
         return purchaseCoinsService.createTransaction(accountId, coinPackId, paymentMethod);
     }
+    
+    @Post("/payments/momo/ipn")
+    public HttpResponse<String> receiveIpn(@Body Map<String, Object> payload)
+            throws InvalidKeyException, NoSuchAlgorithmException {
+        purchaseCoinsService.verifyPayment(payload);
+        return HttpResponse.noContent();
+    }
 
     @Get("/me/coin-purchases")
     public HttpResponse<PageResponseDTO<PurchaseHistoryDTO>> getCoinSpentHistory(
